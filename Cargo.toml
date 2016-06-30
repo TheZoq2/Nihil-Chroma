@@ -1,0 +1,9 @@
+[package]
+name = "sdl_test"
+version = "0.1.0"
+authors = ["TheZoq2 <frans.skarman@gmail.com>"]
+
+[dependencies]
+sdl2 = "0.20"
+image = "*"
+nalgebra = "*"
