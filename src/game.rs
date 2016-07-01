@@ -8,28 +8,28 @@ use std::rc::Rc;
 use nalgebra::{Vector2};
 use ecs::system::{EntityProcess, EntitySystem};
 
-pub struct RenderingSystem<'a> {
-    pub renderer: Option<Renderer<'a>>,
-}
+// pub struct RenderingSystem<'a> {
+//     pub renderer: Option<Renderer<'a>>,
+// }
 
-impl<'a> System for RenderingSystem<'a> {
-    type Components = MyComponents;
-    type Services = ();
-}
+// impl<'a> System for RenderingSystem<'a> {
+//     type Components = MyComponents;
+//     type Services = ();
+// }
 
-impl EntityProcess for RenderingSystem<'static> {
-    fn process(&mut self, entities: EntityIter<MyComponents>,
-                       data: &mut DataHelper<MyComponents, ()>)
-    {
-        self.renderer.unwrap().clear();
+// impl EntityProcess for RenderingSystem<'static> {
+//     fn process(&mut self, entities: EntityIter<MyComponents>,
+//                        data: &mut DataHelper<MyComponents, ()>)
+//     {
+//         self.renderer.unwrap().clear();
 
-        for e in entities {
-            data.sprite[e].draw(&mut self.renderer.unwrap());
-        }
+//         for e in entities {
+//             data.sprite[e].draw(&mut self.renderer.unwrap());
+//         }
 
-        self.renderer.unwrap().present();
-    }
-}
+//         self.renderer.unwrap().present();
+//     }
+// }
 
 components! {
     struct MyComponents {
@@ -40,15 +40,16 @@ components! {
 }
 
 systems! {
-    struct MySystems<MyComponents, ()> {
-        active: {
-            motion: EntitySystem<RenderingSystem<'static>> = EntitySystem::new(
-                RenderingSystem { renderer: None },
-                aspect!(<MyComponents> all: [position, sprite])
-            ),
-        },
-        passive: {}
-    }
+    struct MySystems<MyComponents, ()>;
+    // struct MySystems<MyComponents, ()> {
+    //     active: {
+    //         motion: EntitySystem<RenderingSystem<'static>> = EntitySystem::new(
+    //             RenderingSystem { renderer: None },
+    //             aspect!(<MyComponents> all: [position, sprite])
+    //         ),
+    //     },
+    //     passive: {}
+    // }
 }
 
 
@@ -82,4 +83,20 @@ pub fn create_world(renderer: &Renderer) -> World<MySystems>
     );
 
     return world;
+}
+
+pub fn render_entities(world: &mut World<MySystems>, mut renderer: &mut Renderer)
+{
+    renderer.clear();
+
+    let entities = world.entities().filter(aspect!(<MyComponents> all: [sprite]), &world);
+
+    for entity in entities
+    {
+        world.with_entity_data(&entity, |entity, data| {
+            data.sprite[entity].draw(&mut renderer);
+        });
+    }
+
+    renderer.present();
 }
