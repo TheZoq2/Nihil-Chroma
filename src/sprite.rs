@@ -9,6 +9,7 @@ use std::rc::{Rc};
 
 use nalgebra::Vector2;
 
+
 pub struct Sprite 
 {
     texture: Rc<Texture>,
@@ -18,6 +19,8 @@ pub struct Sprite
     angle: f64,
 
     size: Vector2<f32>,
+
+    depth: i32,
 }
 
 impl Sprite 
@@ -32,6 +35,8 @@ impl Sprite
             angle: 0.0,
 
             size: na::one(),
+
+            depth: 0,
         };
 
         result.set_scale(Vector2::new(1.0, 1.0));
@@ -71,9 +76,13 @@ impl Sprite
         return self.scale;
     }
 
-    pub fn draw(&self, target: &mut Renderer) 
+}
+
+impl Sprite 
+{
+    pub fn draw(&self, renderer: &mut Renderer) 
     {
-        target.copy_ex(
+        renderer.copy_ex(
             &self.texture, 
             None, 
             Some(Rect::new(self.pos.x as i32, self.pos.y as i32, self.size.x as u32, self.size.y as u32)),
@@ -83,4 +92,3 @@ impl Sprite
             false).unwrap();
     }
 }
-

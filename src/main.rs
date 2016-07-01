@@ -1,10 +1,10 @@
+#![allow(dead_code)]
 extern crate image;
 extern crate sdl2;
 
 extern crate nalgebra;
 
 mod sprite;
-mod drawer;
 
 use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::rect::Rect;
@@ -61,16 +61,19 @@ pub fn main() {
         .unwrap();
 
     let mut renderer = window.renderer().build().unwrap();
+    renderer.set_draw_color(Color::RGB(100, 100, 0));
+
 
     let texture = Rc::new(load_texture(&renderer, String::from("data/test.png")));
     let texture2 = Rc::new(load_texture(&renderer, String::from("data/test2.png")));
+
 
     let mut test_sprite = sprite::Sprite::new(texture);
     let mut test_sprite2 = sprite::Sprite::new(texture2);
     test_sprite2.set_position(Vector2::new(150.0, 150.0));
     test_sprite2.set_scale(Vector2::new(0.5, 0.5));
 
-    renderer.set_draw_color(Color::RGB(100, 100, 0));
+
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut angle = 0.0;
@@ -85,15 +88,15 @@ pub fn main() {
             }
         }
         // The rest of the game loop goes here...
+        
         renderer.clear();
 
-        test_sprite.set_angle(angle);
         test_sprite.draw(&mut renderer);
-
-        test_sprite2.set_angle(angle);
         test_sprite2.draw(&mut renderer);
-        
-        angle += 0.01;
+
         renderer.present();
+        
+        test_sprite.set_angle(angle);
+        angle += 0.01;
     }
 }
