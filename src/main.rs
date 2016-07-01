@@ -54,14 +54,15 @@ pub fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
-    let window = video_subsystem.window("rust-sdl2 demo: Video", 800, 600)
+    let resolution = (1600, 900);
+
+    let window = video_subsystem.window("rust-sdl2 demo: Video", resolution.0, resolution.1)
         .position_centered()
         .opengl()
         .build()
         .unwrap();
 
     let mut renderer = window.renderer().build().unwrap();
-    renderer.set_draw_color(Color::RGB(100, 100, 0));
 
 
     let texture = Rc::new(load_texture(&renderer, String::from("data/test.png")));
@@ -89,10 +90,28 @@ pub fn main() {
         }
         // The rest of the game loop goes here...
         
+        //Create a new render target to which we will draw the world
+        renderer.render_target()
+            .expect("No support for render targets")
+            .create_and_set(PixelFormatEnum::RGBA8888, resolution.0, resolution.1);
+
+        //Draw the actual world
         renderer.clear();
+        renderer.set_draw_color(Color::RGB(0, 0, 0));
 
         test_sprite.draw(&mut renderer);
         test_sprite2.draw(&mut renderer);
+
+        //Get the texture we just rendered
+        let r_texture = Rc::new(renderer.render_target().unwrap().reset().unwrap().unwrap());
+        
+        //we don't need to clear the screen here because we will fill the screen with the new
+        //texture anyway
+        
+        //Do the cone stuff
+
+        //Render the new texture on the screen
+        renderer.copy(&r_texture, None, Some(Rect::new(0,0, resolution.0, resolution.1)));
 
         renderer.present();
         
@@ -100,3 +119,7 @@ pub fn main() {
         angle += 0.01;
     }
 }
+
+//fn do_cone_stuff(texture: &mut Texture) 
+//{
+//}
