@@ -7,3 +7,4 @@ authors = ["TheZoq2 <frans.skarman@gmail.com>"]
 sdl2 = "0.20"
 image = "*"
 nalgebra = "*"
+ecs = "*"

@@ -1,16 +1,49 @@
 #![allow(dead_code)]
 
+extern crate sdl2;
 extern crate nalgebra as na;
+extern crate image;
 
 use sdl2::rect::{Rect};
-use sdl2::render::{Renderer, Texture};
+use sdl2::render::{Renderer, Texture, BlendMode};
+use sdl2::pixels::{PixelFormatEnum};
+use image::GenericImage;
 
 use std::rc::{Rc};
+use std::path::Path;
 
 use nalgebra::Vector2;
 
+//Loads a texture from a file and returns an SDL2 texture object
+pub fn load_texture(renderer: &Renderer, path: String) -> sdl2::render::Texture
+{
+    let img = image::open(&Path::new(&path)).unwrap();
 
-pub struct Sprite 
+    let mut result = renderer.create_texture_streaming(PixelFormatEnum::RGBA8888, img.dimensions().0, img.dimensions().1)
+                    .unwrap();
+
+    result.set_blend_mode(BlendMode::Blend);
+
+    //Take the pixels from the image and put them on the texture
+    result.with_lock(None, |buffer: &mut [u8], pitch: usize|{
+        for y in 0..img.dimensions().0
+        {
+            for x in 0..img.dimensions().1
+            {
+                let offset = y*pitch as u32 + x*4;
+                buffer[(offset + 0) as usize] = img.get_pixel(x, y)[3]; //A
+                buffer[(offset + 1) as usize] = img.get_pixel(x, y)[2]; //B
+                buffer[(offset + 2) as usize] = img.get_pixel(x, y)[1]; //G
+                buffer[(offset + 3) as usize] = img.get_pixel(x, y)[0]; //R
+            }
+        }
+    }).unwrap();
+
+    result
+}
+
+
+pub struct Sprite
 {
     texture: Rc<Texture>,
 
@@ -23,9 +56,9 @@ pub struct Sprite
     depth: i32,
 }
 
-impl Sprite 
+impl Sprite
 {
-    pub fn new(texture: Rc<Texture>) -> Sprite 
+    pub fn new(texture: Rc<Texture>) -> Sprite
     {
         let mut result = Sprite {
             texture: texture,
@@ -78,13 +111,13 @@ impl Sprite
 
 }
 
-impl Sprite 
+impl Sprite
 {
-    pub fn draw(&self, renderer: &mut Renderer) 
+    pub fn draw(&self, renderer: &mut Renderer)
     {
         renderer.copy_ex(
-            &self.texture, 
-            None, 
+            &self.texture,
+            None,
             Some(Rect::new(self.pos.x as i32, self.pos.y as i32, self.size.x as u32, self.size.y as u32)),
             self.angle,
             None,
