@@ -11,6 +11,7 @@ use sdl2::rect::Rect;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::render::{Renderer, BlendMode};
+use sdl2::surface::Surface;
 
 use std::string::String;
 
@@ -90,20 +91,9 @@ pub fn main() {
         }
         // The rest of the game loop goes here...
         
-        //Create a new render target to which we will draw the world
-        renderer.render_target()
-            .expect("No support for render targets")
-            .create_and_set(PixelFormatEnum::RGBA8888, resolution.0, resolution.1);
+        let game_surface = Surface::new(resolution.0, resolution.1, PixelFormatEnum::RGB888);
 
-        //Draw the actual world
-        renderer.clear();
-        renderer.set_draw_color(Color::RGB(0, 0, 0));
-
-        test_sprite.draw(&mut renderer);
-        test_sprite2.draw(&mut renderer);
-
-        //Get the texture we just rendered
-        let r_texture = Rc::new(renderer.render_target().unwrap().reset().unwrap().unwrap());
+        game_renderer = Renderer::from_surface(game_surface);
         
         //we don't need to clear the screen here because we will fill the screen with the new
         //texture anyway
