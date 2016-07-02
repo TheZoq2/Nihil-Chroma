@@ -14,18 +14,8 @@ mod constants;
 use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::render::{Renderer, BlendMode};
+use sdl2::render::{Renderer};
 use sdl2::surface::Surface;
-
-use std::string::String;
-use std::path::Path;
-use std::rc::Rc;
-use std::f64::consts;
-
-use image::GenericImage;
-
-use nalgebra::Vector2;
-use sprite::load_texture;
 
 use constants::*;
 
@@ -40,7 +30,7 @@ pub fn main() {
         .unwrap();
 
     //The renderer which actually renders to the game window
-    let mut renderer = window.renderer().build().unwrap();
+    let renderer = window.renderer().build().unwrap();
 
     //Renderer where the game is rendered in full color
     let game_surface = Surface::new(RESOLUTION.0, RESOLUTION.1, PixelFormatEnum::RGB888).unwrap();
@@ -49,8 +39,6 @@ pub fn main() {
 
     let mut world = game::create_world(renderer, game_renderer);
     let mut event_pump = sdl_context.event_pump().unwrap();
-
-    let mut angle = 0.0;
 
     'running: loop {
         for event in event_pump.poll_iter() {

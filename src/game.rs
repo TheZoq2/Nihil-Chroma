@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::f64::consts;
 use nalgebra::{Vector2};
 
-use ecs::{Entity, World, BuildData, System, Process, DataHelper, EntityIter};
+use ecs::{World, BuildData, System, DataHelper, EntityIter};
 use ecs::system::{EntityProcess, EntitySystem, LazySystem};
 
 use sprite::{Sprite, load_texture};
@@ -83,7 +83,7 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
                     }
                 }
             }
-        });
+        }).unwrap();
 
         //we don't need to clear the screen here because we will fill the screen with the new
         //texture anyway
@@ -131,8 +131,8 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
 {
     let mut world = World::<MySystems>::new();
 
-    let texture = Rc::new(load_texture(&renderer, String::from("data/test.png")));
-    let texture2 = Rc::new(load_texture(&renderer, String::from("data/test2.png")));
+    let texture = Rc::new(load_texture(&game_renderer, String::from("data/test.png")));
+    let texture2 = Rc::new(load_texture(&game_renderer, String::from("data/test2.png")));
 
     let mut test_sprite = Sprite::new(texture);
     let mut test_sprite2 = Sprite::new(texture2);
@@ -141,7 +141,7 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
 
 
     // Create some entites with some components
-    let entity1 = world.create_entity(
+    world.create_entity(
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
             data.position.add(&entity, Vector2::new(0.0, 0.0));
             data.sprite.add(&entity, test_sprite);
@@ -149,7 +149,7 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
         }
     );
 
-    let entity2 = world.create_entity(
+    world.create_entity(
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
             data.position.add(&entity, Vector2::new(0.0, 0.0));
             data.sprite.add(&entity, test_sprite2);
