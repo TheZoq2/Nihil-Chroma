@@ -2,7 +2,7 @@ extern crate ecs;
 extern crate nalgebra;
 
 use sdl2::render::{Renderer};
-use ecs::{World, BuildData, System, Process, DataHelper, EntityIter};
+use ecs::{Entity, World, BuildData, System, Process, DataHelper, EntityIter};
 use sprite::{Sprite, load_texture};
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -13,12 +13,12 @@ pub struct RenderingSystem<'a> {
     pub renderer: RefCell<Renderer<'a>>,
 }
 
-impl<'a> System for RenderingSystem<'a> {
+impl<'a, 'b> System for RenderingSystem<'a> {
     type Components = MyComponents;
     type Services = ();
 }
 
-impl EntityProcess for RenderingSystem<'static> {
+impl<'a, 'b> EntityProcess for RenderingSystem<'a> {
     fn process(&mut self, entities: EntityIter<MyComponents>,
                        data: &mut DataHelper<MyComponents, ()>)
     {
@@ -44,14 +44,15 @@ systems! {
     // struct MySystems<MyComponents, ()>;
     struct MySystems<MyComponents, ()> {
         active: {
-            rendering: LazySystem<EntitySystem<RenderingSystem<'static>>> = LazySystem::new(),
+            // Here I am totally lost on what to do with the lifetime parameters
+            rendering: LazySystem<EntitySystem<RenderingSystem<'a>>> = LazySystem::new(),
         },
         passive: {}
     }
 }
 
 
-pub fn create_world(renderer: Renderer) -> World<MySystems>
+pub fn create_world<'a>(renderer: Renderer) -> World<MySystems>
 {
     let mut world = World::<MySystems>::new();
 
@@ -80,25 +81,70 @@ pub fn create_world(renderer: Renderer) -> World<MySystems>
         }
     );
 
+    let renderref = RefCell::new(renderer);
+
     world.systems.rendering.init(EntitySystem::new(
-        RenderingSystem { renderer: RefCell::new(renderer) },
+        RenderingSystem {renderer: renderref},
         aspect!(<MyComponents> all: [position, sprite])
     ));
 
     return world;
 }
 
+/*
+src/game.rs:84:34: 84:42 error: cannot infer an appropriate lifetime due to conflicting requirements [E0495]
+src/game.rs:84     let renderref = RefCell::new(renderer);
+                                                ^~~~~~~~
+src/game.rs:87:36: 87:45 note: first, the lifetime cannot outlive the expression at 87:35...
+src/game.rs:87         RenderingSystem {renderer: renderref},
+                                                  ^~~~~~~~~
+src/game.rs:87:36: 87:45 note: ...so type `std::cell::RefCell<sdl2::render::Renderer<'_>>` of expression is valid during the expression
+src/game.rs:87         RenderingSystem {renderer: renderref},
+                                                  ^~~~~~~~~
+src/game.rs:84:21: 84:43 note: but, the lifetime must be valid for the call at 84:20...
+src/game.rs:84     let renderref = RefCell::new(renderer);
+                                   ^~~~~~~~~~~~~~~~~~~~~~
+src/game.rs:84:21: 84:43 note: ...so type `std::cell::RefCell<sdl2::render::Renderer<'_>>` of expression is valid during the expression
+src/game.rs:84     let renderref = RefCell::new(renderer);
+*/
+
+/* Compiler errors
+src/game.rs:48:64: 48:66 error: use of undeclared lifetime name `'a` [E0261]
+src/game.rs:48             rendering: LazySystem<EntitySystem<RenderingSystem<'a, 'b>>> = LazySystem::new(),
+^~
+src/game.rs:43:1: 52:2 note: in this expansion of systems! (defined in <ecs macros>)
+src/game.rs:48:64: 48:66 help: run `rustc --explain E0261` to see a detailed explanation
+src/game.rs:48:68: 48:70 error: use of undeclared lifetime name `'b` [E0261]
+src/game.rs:48             rendering: LazySystem<EntitySystem<RenderingSystem<'a, 'b>>> = LazySystem::new(),
+^~
+src/game.rs:43:1: 52:2 note: in this expansion of systems! (defined in <ecs macros>)
+src/game.rs:48:68: 48:70 help: run `rustc --explain E0261` to see a detailed explanation
+*/
+
 pub fn render_entities(world: &mut World<MySystems>, mut renderer: &mut Renderer)
 {
     renderer.clear();
 
-    let entities = world.entities().filter(aspect!(<MyComponents> all: [sprite]), &world);
+    let mut entity_vec = Vec::new();
 
-    for entity in entities
     {
-        world.with_entity_data(&entity, |entity, data| {
-            data.sprite[entity].draw(&mut renderer);
-        });
+        let entities = world.entities().filter(aspect!(<MyComponents> all: [sprite]), &world);
+
+        for entity in entities
+        {
+            entity_vec.push(entity.clone());
+            // world.with_entity_data(&entity, |entity, data| {
+            //     data.sprite[entity].draw(&mut renderer);
+            // });
+        }
+    }
+
+
+    for e in entity_vec
+    {
+        // world.with_entity_data(&e, |entity, data| {
+        //     data.sprite[entity].draw(&mut renderer);
+        // });
     }
 
     renderer.present();
