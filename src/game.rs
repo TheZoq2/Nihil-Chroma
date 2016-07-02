@@ -26,7 +26,7 @@ use player;
 pub struct RenderingSystem<'a> {
     pub renderer: RefCell<Renderer<'a>>,
     pub game_renderer: RefCell<Renderer<'a>>,
-    pub angle: f64,
+    pub player: ecs::Entity,
 }
 
 impl<'a> System for RenderingSystem<'a> {
@@ -40,6 +40,16 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
     {
         let mut renderer = self.renderer.borrow_mut();
         let mut game_renderer = self.game_renderer.borrow_mut();
+
+        //Getting some parameters about the player
+        let mut plr_angle = 0.0;
+        let mut player_pos = Vector2::new(0.0, 0.0);
+        data.with_entity_data(&self.player, |entity, data|{
+            plr_angle = data.transform[entity].angle;
+            player_pos = data.transform[entity].pos;
+        });
+
+        println!("{}", plr_angle);
 
         game_renderer.clear();
 
@@ -65,7 +75,7 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
                 for x in 0..RESOLUTION.0
                 {
 
-                    let is_in_cone = is_in_cone(x, y, self.angle);
+                    let is_in_cone = is_in_cone(player_pos, x, y, plr_angle);
 
                     //Doing the grayscale stuff
                     let surface_offset = (y) * game_surface.pitch() as u32 + (x) * 4;
@@ -100,17 +110,6 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
         renderer.copy(&game_texture, None, None);
 
         renderer.present();
-
-        self.angle += 0.03;
-
-        if self.angle > consts::PI * 2.0
-        {
-            self.angle = self.angle - consts::PI * 2.0;
-        }
-        else if self.angle < 0.0
-        {
-            self.angle = self.angle + consts::PI * 2.0;
-        }
     }
 }
 
@@ -131,7 +130,7 @@ impl EntityProcess for InputSystem {
         //Run the event loop and store all the keycodes that were pressed
         let mut keys = Vec::<(Keycode, bool)>::new();
 
-        let mut new_angle = None;
+        let mut mouse_pos = None;
 
         for event in self.event_pump.poll_iter() {
             match event {
@@ -146,7 +145,7 @@ impl EntityProcess for InputSystem {
                     keys.push((code, false));
                 }
                 Event::MouseMotion{x: x, y: y, ..} => {
-                    new_angle = Some((y as f64).atan2(x as f64));
+                    mouse_pos = Some(Vector2::new(x as f32, y as f32));
                 }
                 _ => {}
             }
@@ -192,9 +191,13 @@ impl EntityProcess for InputSystem {
                 data.transform[e].pos += Vector2::new(-1.0, 0.0);
             }
 
-            match new_angle
+            match mouse_pos
             {
-                Some(angle) => data.transform[e].angle = angle,
+                Some(pos) => {
+                    let pos_diff = pos / 2.0 - data.transform[e].pos;
+
+                    data.transform[e].angle = pos_diff.y.atan2(pos_diff.x) as f64;
+                },
                 None => {}
             }
         }
@@ -236,7 +239,7 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
     let test_sprite2 = Sprite::new(neutral_texture);
     let test_sprite3 = Sprite::new(bad_texture);
 
-    let transform1 = Transform { pos: Vector2::new(0.0, 0.0), angle: 0.0,
+    let player_transform = Transform { pos: Vector2::new(0.0, 0.0), angle: 0.0,
                                  scale: Vector2::new(0.5, 0.5) };
     let transform2 = Transform { pos: Vector2::new(150.0, 150.0), angle: 0.0,
                                  scale: Vector2::new(0.5, 0.5) };
@@ -245,9 +248,9 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
 
 
     // Create some entites with some components
-    world.create_entity(
+    let player = world.create_entity(
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
-            data.transform.add(&entity, transform1);
+            data.transform.add(&entity, player_transform);
             data.sprite.add(&entity, test_sprite);
             data.player_component.add(&entity, PlayerComponent::new());
         }
@@ -271,7 +274,7 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
     let game_renderref = RefCell::new(game_renderer);
 
     world.systems.rendering.init(EntitySystem::new(
-        RenderingSystem {renderer: renderref, game_renderer: game_renderref, angle: 0.0},
+        RenderingSystem {renderer: renderref, game_renderer: game_renderref, player: player},
         aspect!(<MyComponents> all: [transform, sprite])
     ));
 
@@ -283,17 +286,17 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
     return world;
 }
 
-fn is_in_cone(x: u32, y: u32, angle: f64) -> bool
+fn is_in_cone(center: Vector2<f32>, x: u32, y: u32, angle: f64) -> bool
 {
     let cone_size = 0.07;
 
     let angle_threshold = cone_size * consts::PI * 2.;
 
     //Center the pixels
-    let x = x as i32 - RESOLUTION.0 as i32 / 2;
-    let y = y as i32 - RESOLUTION.1 as i32 / 2;
+    let x = x as i32 - center.x as i32;
+    let y = y as i32 - center.y as i32;
 
-    let pixel_angle = (y as f64).atan2(x as f64) + consts::PI;
+    let pixel_angle = (y as f64).atan2(x as f64);
 
     let mut angle_diff = (angle - pixel_angle).abs();
 
