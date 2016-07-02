@@ -41,7 +41,7 @@ pub fn main() {
     renderer.set_draw_color(Color::RGB(100, 100, 0));
 
 
-    let world = game::create_world(&renderer);
+    let mut world = game::create_world(renderer);
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -58,12 +58,13 @@ pub fn main() {
         }
         // The rest of the game loop goes here...
 
-        renderer.clear();
+        // renderer.clear();
+        world.update();
 
         // test_sprite.draw(&mut renderer);
         // test_sprite2.draw(&mut renderer);
 
-        renderer.present();
+        // renderer.present();
 
         // test_sprite.set_angle(angle);
         angle += 0.01;

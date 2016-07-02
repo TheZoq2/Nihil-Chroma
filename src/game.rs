@@ -45,14 +45,14 @@ systems! {
     struct MySystems<MyComponents, ()> {
         active: {
             // Here I am totally lost on what to do with the lifetime parameters
-            rendering: LazySystem<EntitySystem<RenderingSystem<'a>>> = LazySystem::new(),
+            rendering: LazySystem<EntitySystem<RenderingSystem<'static>>> = LazySystem::new(),
         },
         passive: {}
     }
 }
 
 
-pub fn create_world<'a>(renderer: Renderer) -> World<MySystems>
+pub fn create_world<'a>(renderer: Renderer<'static>) -> World<MySystems>
 {
     let mut world = World::<MySystems>::new();
 
