@@ -242,6 +242,25 @@ impl EntityProcess for CollisionSystem {
     }
 }
 
+pub struct MotionSystem;
+
+impl System for MotionSystem {
+    type Components = MyComponents;
+    type Services = ();
+}
+
+impl EntityProcess for MotionSystem {
+    fn process(&mut self, entities: EntityIter<MyComponents>,
+               data: &mut DataHelper<MyComponents, ()>)
+    {
+        for e in entities {
+            let velocity = data.velocity[e];
+            data.transform[e].pos += velocity;
+        }
+    }
+}
+
+
 components! {
     struct MyComponents {
         #[hot] transform: Transform,
@@ -259,6 +278,10 @@ systems! {
             rendering: LazySystem<EntitySystem<RenderingSystem<'static>>> = LazySystem::new(),
             input: LazySystem<EntitySystem<InputSystem>> = LazySystem::new(),
             collision: LazySystem<EntitySystem<CollisionSystem>> = LazySystem::new(),
+            motion: EntitySystem<MotionSystem> = EntitySystem::new(
+                MotionSystem,
+                aspect!(<MyComponents> all: [transform, velocity])
+            ),
         },
         passive: {}
     }
