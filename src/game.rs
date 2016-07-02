@@ -5,31 +5,32 @@ use sdl2::render::{Renderer};
 use ecs::{World, BuildData, System, Process, DataHelper, EntityIter};
 use sprite::{Sprite, load_texture};
 use std::rc::Rc;
+use std::cell::RefCell;
 use nalgebra::{Vector2};
-use ecs::system::{EntityProcess, EntitySystem};
+use ecs::system::{EntityProcess, EntitySystem, LazySystem};
 
-// pub struct RenderingSystem<'a> {
-//     pub renderer: Option<Renderer<'a>>,
-// }
+pub struct RenderingSystem<'a> {
+    pub renderer: RefCell<Renderer<'a>>,
+}
 
-// impl<'a> System for RenderingSystem<'a> {
-//     type Components = MyComponents;
-//     type Services = ();
-// }
+impl<'a> System for RenderingSystem<'a> {
+    type Components = MyComponents;
+    type Services = ();
+}
 
-// impl EntityProcess for RenderingSystem<'static> {
-//     fn process(&mut self, entities: EntityIter<MyComponents>,
-//                        data: &mut DataHelper<MyComponents, ()>)
-//     {
-//         self.renderer.unwrap().clear();
+impl EntityProcess for RenderingSystem<'static> {
+    fn process(&mut self, entities: EntityIter<MyComponents>,
+                       data: &mut DataHelper<MyComponents, ()>)
+    {
+        self.renderer.borrow_mut().clear();
 
-//         for e in entities {
-//             data.sprite[e].draw(&mut self.renderer.unwrap());
-//         }
+        for e in entities {
+            data.sprite[e].draw(&mut self.renderer.borrow_mut());
+        }
 
-//         self.renderer.unwrap().present();
-//     }
-// }
+        self.renderer.borrow_mut().present();
+    }
+}
 
 components! {
     struct MyComponents {
@@ -40,20 +41,17 @@ components! {
 }
 
 systems! {
-    struct MySystems<MyComponents, ()>;
-    // struct MySystems<MyComponents, ()> {
-    //     active: {
-    //         motion: EntitySystem<RenderingSystem<'static>> = EntitySystem::new(
-    //             RenderingSystem { renderer: None },
-    //             aspect!(<MyComponents> all: [position, sprite])
-    //         ),
-    //     },
-    //     passive: {}
-    // }
+    // struct MySystems<MyComponents, ()>;
+    struct MySystems<MyComponents, ()> {
+        active: {
+            rendering: LazySystem<EntitySystem<RenderingSystem<'static>>> = LazySystem::new(),
+        },
+        passive: {}
+    }
 }
 
 
-pub fn create_world(renderer: &Renderer) -> World<MySystems>
+pub fn create_world(renderer: Renderer) -> World<MySystems>
 {
     let mut world = World::<MySystems>::new();
 
@@ -81,6 +79,11 @@ pub fn create_world(renderer: &Renderer) -> World<MySystems>
             data.sprite.add(&entity, test_sprite2);
         }
     );
+
+    world.systems.rendering.init(EntitySystem::new(
+        RenderingSystem { renderer: RefCell::new(renderer) },
+        aspect!(<MyComponents> all: [position, sprite])
+    ));
 
     return world;
 }
