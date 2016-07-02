@@ -202,7 +202,22 @@ impl System for CollisionSystem {
 }
 
 fn are_colliding(tr1: Transform, bb1: BoundingBox, tr2: Transform, bb2: BoundingBox) -> bool {
-    false
+    let left1 = tr1.pos.x + bb1.offset.x;
+    let left2 = tr2.pos.x + bb2.offset.x;
+    let right1 = left1 + bb1.size.x;
+    let right2 = left2 + bb2.size.x;
+
+    let top1 = tr1.pos.y + bb1.offset.y;
+    let top2 = tr2.pos.y + bb2.offset.y;
+    let bottom1 = top1 + bb1.size.y;
+    let bottom2 = top2 + bb2.size.y;
+
+    if left1 > right2 {return false};
+    if left2 > right1 {return false};
+    if top1 > bottom2 {return false};
+    if top2 > bottom1 {return false};
+
+    true
 }
 
 impl EntityProcess for CollisionSystem {
