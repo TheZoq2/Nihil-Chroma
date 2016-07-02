@@ -37,6 +37,13 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
         // test_sprite.draw(&mut game_renderer);
         // test_sprite2.draw(&mut game_renderer);
         for e in entities {
+            let pos = data.position[e];
+            // let scale = data.scale[e];
+
+            // Update sprite with data from components
+            data.sprite[e].set_position(pos);
+            // data.sprite[e].set_scale(scale);
+
             data.sprite[e].draw(&mut game_renderer);
         }
 
@@ -111,6 +118,7 @@ components! {
     struct MyComponents {
         #[hot] position: Vector2<f32>,
         #[hot] sprite: Sprite,
+        #[hot] scale: Vector2<f32>,
         #[hot] angle: f32,
     }
 }
@@ -134,9 +142,8 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
     let texture = Rc::new(load_texture(&game_renderer, String::from("data/test.png")));
     let texture2 = Rc::new(load_texture(&game_renderer, String::from("data/test2.png")));
 
-    let mut test_sprite = Sprite::new(texture);
+    let test_sprite = Sprite::new(texture);
     let mut test_sprite2 = Sprite::new(texture2);
-    test_sprite2.set_position(Vector2::new(150.0, 150.0));
     test_sprite2.set_scale(Vector2::new(0.5, 0.5));
 
 
@@ -151,7 +158,8 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
 
     world.create_entity(
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
-            data.position.add(&entity, Vector2::new(0.0, 0.0));
+            data.position.add(&entity, Vector2::new(150.0, 150.0));
+            data.scale.add(&entity, Vector2::new(1.0, 1.0));
             data.sprite.add(&entity, test_sprite2);
         }
     );
