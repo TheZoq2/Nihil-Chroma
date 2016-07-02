@@ -10,9 +10,15 @@ use nalgebra::{Vector2};
 
 use ecs::{World, BuildData, System, DataHelper, EntityIter};
 use ecs::system::{EntityProcess, EntitySystem, LazySystem};
+use ecs::Aspect;
 
 use sprite::{Sprite, load_texture};
 use constants::*;
+
+use sdl2::EventPump;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+
 
 pub struct RenderingSystem<'a> {
     pub renderer: RefCell<Renderer<'a>>,
@@ -107,11 +113,39 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
     }
 }
 
+pub struct InputSystem {
+    event_pump: EventPump,
+
+    pub should_exit: bool,
+}
+
+impl System for InputSystem {
+    type Components = MyComponents;
+    type Services = ();
+}
+
+impl EntityProcess for InputSystem {
+    fn process(&mut self, entities: EntityIter<MyComponents>, data: &mut DataHelper<MyComponents, ()>)
+    {
+        for event in self.event_pump.poll_iter() {
+            match event {
+                Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                    self.should_exit = true;
+                    return;
+                },
+                _ => {}
+            }
+        }
+    }
+}
+
+
 components! {
     struct MyComponents {
         #[hot] position: Vector2<f32>,
         #[hot] sprite: Sprite,
         #[hot] angle: f32,
+        #[cold] player: bool,
     }
 }
 
@@ -120,6 +154,7 @@ systems! {
     struct MySystems<MyComponents, ()> {
         active: {
             rendering: LazySystem<EntitySystem<RenderingSystem<'static>>> = LazySystem::new(),
+            input: LazySystem<EntitySystem<InputSystem>> = LazySystem::new(),
         },
         passive: {}
     }
@@ -127,7 +162,7 @@ systems! {
 
 
 pub fn create_world<'a>(renderer: Renderer<'static>,
-                        game_renderer: Renderer<'static>) -> World<MySystems>
+                        game_renderer: Renderer<'static>, event_pump: EventPump) -> World<MySystems>
 {
     let mut world = World::<MySystems>::new();
 
@@ -163,6 +198,10 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
         RenderingSystem {renderer: renderref, game_renderer: game_renderref, angle: 0.0},
         aspect!(<MyComponents> all: [position, sprite])
     ));
+
+    world.systems.input.init(
+            EntitySystem::new(InputSystem{event_pump: event_pump, should_exit:false}, Aspect::all())
+        );
 
     return world;
 }

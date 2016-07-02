@@ -37,20 +37,19 @@ pub fn main() {
     let mut game_renderer = Renderer::from_surface(game_surface).unwrap();
     game_renderer.set_draw_color(Color::RGB(150, 150, 0));
 
-    let mut world = game::create_world(renderer, game_renderer);
     let mut event_pump = sdl_context.event_pump().unwrap();
 
+    let mut world = game::create_world(renderer, game_renderer, event_pump);
+
     'running: loop {
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    break 'running
-                },
-                _ => {}
-            }
-        }
-        // The rest of the game loop goes here...
 
         world.update();
+
+        let should_exit = world.systems.input.inner.as_ref().unwrap().should_exit;
+        
+        if should_exit
+        {
+            return;
+        }
     }
 }
