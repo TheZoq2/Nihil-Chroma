@@ -9,40 +9,45 @@ extern crate ecs;
 
 mod sprite;
 mod game;
+mod constants;
 
 use sdl2::pixels::{Color, PixelFormatEnum};
-use sdl2::rect::Rect;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::render::{Renderer, BlendMode};
+use sdl2::surface::Surface;
 
 use std::string::String;
-
 use std::path::Path;
+use std::rc::Rc;
+use std::f64::consts;
 
 use image::GenericImage;
 
-use std::rc::Rc;
-
 use nalgebra::Vector2;
 use sprite::load_texture;
+
+use constants::*;
 
 pub fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
-    let window = video_subsystem.window("rust-sdl2 demo: Video", 800, 600)
+    let window = video_subsystem.window("rust-sdl2 demo: Video", RESOLUTION.0 * UPSCALING, RESOLUTION.1 * UPSCALING)
         .position_centered()
         .opengl()
         .build()
         .unwrap();
 
+    //The renderer which actually renders to the game window
     let mut renderer = window.renderer().build().unwrap();
-    renderer.set_draw_color(Color::RGB(100, 100, 0));
 
+    //Renderer where the game is rendered in full color
+    let game_surface = Surface::new(RESOLUTION.0, RESOLUTION.1, PixelFormatEnum::RGB888).unwrap();
+    let mut game_renderer = Renderer::from_surface(game_surface).unwrap();
+    game_renderer.set_draw_color(Color::RGB(150, 150, 0));
 
-    let mut world = game::create_world(renderer);
-
+    let mut world = game::create_world(renderer, game_renderer);
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut angle = 0.0;
@@ -58,15 +63,6 @@ pub fn main() {
         }
         // The rest of the game loop goes here...
 
-        // renderer.clear();
         world.update();
-
-        // test_sprite.draw(&mut renderer);
-        // test_sprite2.draw(&mut renderer);
-
-        // renderer.present();
-
-        // test_sprite.set_angle(angle);
-        angle += 0.01;
     }
 }
