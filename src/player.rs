@@ -9,7 +9,7 @@ pub enum Keys
     Right,
 }
 
-pub struct PlayerComponent 
+pub struct PlayerComponent
 {
     pressed_keys: HashMap<Keys, bool>,
 }
@@ -28,7 +28,7 @@ impl PlayerComponent
     {
         self.pressed_keys.insert(key, pressed);
     }
-    pub fn get_key(&self, key: Keys) -> bool 
+    pub fn get_key(&self, key: Keys) -> bool
     {
         match self.pressed_keys.get(&key)
         {

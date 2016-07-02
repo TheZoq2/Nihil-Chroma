@@ -42,6 +42,7 @@ pub fn load_texture(renderer: &Renderer, path: String) -> sdl2::render::Texture
     result
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Transform
 {
     pub pos: Vector2<f32>,
@@ -49,6 +50,15 @@ pub struct Transform
     pub angle: f64,
 }
 
+impl Default for Transform {
+    fn default() -> Transform {
+        Transform {
+            pos: Vector2::new(0.0, 0.0),
+            angle: 0.0,
+            scale: Vector2::new(1.0, 1.0)
+        }
+    }
+}
 
 pub struct Sprite
 {
