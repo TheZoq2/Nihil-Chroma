@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 extern crate image;
 extern crate sdl2;
-
 extern crate nalgebra;
+extern crate rand;
 
 #[macro_use]
 extern crate ecs;

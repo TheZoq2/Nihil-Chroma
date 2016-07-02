@@ -5,6 +5,7 @@ authors = ["TheZoq2 <frans.skarman@gmail.com>"]
 
 [dependencies]
 sdl2 = "0.20"
+rand = "*"
 image = "*"
 nalgebra = "*"
 ecs = "*"

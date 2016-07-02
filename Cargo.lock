@@ -5,6 +5,7 @@ dependencies = [
  "ecs 0.23.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "nalgebra 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "sdl2 0.20.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
