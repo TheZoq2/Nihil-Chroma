@@ -1,12 +1,15 @@
 extern crate ecs;
-extern crate nalgebra;
+extern crate nalgebra as na;
+extern crate rand;
 
 use sdl2::render::{Renderer};
 use sdl2::pixels::PixelFormatEnum;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::f64::consts;
-use nalgebra::{Vector2};
+use rand::Rng;
+
+use nalgebra::{Vector2, Norm, Absolute};
 
 use ecs::{Entity, World, BuildData, System, DataHelper, EntityIter};
 use ecs::system::{EntityProcess, EntitySystem, LazySystem};
@@ -21,6 +24,13 @@ use sdl2::keyboard::Keycode;
 
 use player::{PlayerComponent};
 use player;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct RespawnComponent
+{
+    max_radius: f32,
+    max_speed: f32,
+}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct BoundingBox {
@@ -62,8 +72,6 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
             plr_angle = data.transform[entity].angle;
             player_pos = data.transform[entity].pos;
         });
-
-        println!("{}", plr_angle);
 
         game_renderer.clear();
 
@@ -129,6 +137,7 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
 
 pub struct InputSystem {
     event_pump: EventPump,
+    mouse_pos: Vector2<f32>,
 
     pub should_exit: bool,
 }
@@ -145,8 +154,6 @@ impl EntityProcess for InputSystem {
         //Run the event loop and store all the keycodes that were pressed
         let mut keys = Vec::<(Keycode, bool)>::new();
 
-        let mut mouse_pos = None;
-
         for event in self.event_pump.poll_iter() {
             match event {
                 Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
@@ -160,7 +167,7 @@ impl EntityProcess for InputSystem {
                     keys.push((code, false));
                 }
                 Event::MouseMotion{x: x, y: y, ..} => {
-                    mouse_pos = Some(Vector2::new(x as f32, y as f32));
+                    self.mouse_pos = Vector2::new(x as f32, y as f32);
                 }
                 _ => {}
             }
@@ -184,33 +191,28 @@ impl EntityProcess for InputSystem {
                 };
             }
 
+            let add_vel = 0.3;
             //All keys have been handled, let's use them
             if data.player_component[e].get_key(player::Keys::Up)
             {
-                data.transform[e].pos += Vector2::new(0.0, -1.0);
+                data.velocity[e] += Vector2::new(0.0, -add_vel);
             }
             if data.player_component[e].get_key(player::Keys::Down)
             {
-                data.transform[e].pos += Vector2::new(0.0, 1.0);
+                data.velocity[e] += Vector2::new(0.0, add_vel);
             }
             if data.player_component[e].get_key(player::Keys::Right)
             {
-                data.transform[e].pos += Vector2::new(1.0, 0.0);
+                data.velocity[e] += Vector2::new(add_vel, 0.0);
             }
             if data.player_component[e].get_key(player::Keys::Left)
             {
-                data.transform[e].pos += Vector2::new(-1.0, 0.0);
+                data.velocity[e] += Vector2::new(-add_vel, 0.0);
             }
 
-            match mouse_pos
-            {
-                Some(pos) => {
-                    let pos_diff = pos / 2.0 - data.transform[e].pos;
+            let pos_diff = self.mouse_pos / 2.0 - data.transform[e].pos;
 
-                    data.transform[e].angle = pos_diff.y.atan2(pos_diff.x) as f64;
-                },
-                None => {}
-            }
+            data.transform[e].angle = pos_diff.y.atan2(pos_diff.x) as f64;
         }
     }
 }
@@ -283,14 +285,76 @@ impl EntityProcess for MotionSystem {
     }
 }
 
+pub struct MaxVelSystem;
+
+impl System for MaxVelSystem {
+    type Components = MyComponents;
+    type Services = ();
+}
+
+impl EntityProcess for MaxVelSystem
+{
+    fn process(&mut self, entities: EntityIter<MyComponents>,
+               data: &mut DataHelper<MyComponents, ()>)
+    {
+        for e in entities {
+            let velocity = data.velocity[e];
+            let max_vel = data.max_velocity[e];
+            
+            if velocity.x * velocity.x + velocity.y * velocity.y > max_vel * max_vel
+            {
+                data.velocity[e] = velocity.normalize() * max_vel;
+            }
+        }
+    }
+}
+
+pub struct RespawnSystem;
+
+impl System for RespawnSystem {
+    type Components = MyComponents;
+    type Services = ();
+}
+
+impl EntityProcess for RespawnSystem
+{
+    fn process(&mut self, entities: EntityIter<MyComponents>,
+               data: &mut DataHelper<MyComponents, ()>)
+    {
+        let center = Vector2::new(RESOLUTION.0, RESOLUTION.1);
+        let mut rng = rand::thread_rng();
+
+        for e in entities 
+        {
+            let diff = Vector2::new(data.transform[e].pos.x - center.x as f32, data.transform[e].pos.y - center.y as f32);
+
+            if diff.x.powi(2) + diff.x.powi(2) >  data.respawn_component[e].max_radius.powi(2)
+            {
+                //select a random position
+                let angle = rng.gen_range(0., consts::PI*2.) as f32;
+
+                data.transform[e].pos = Vector2::new((data.respawn_component[e].max_radius - 1.) * angle.cos(), 
+                                                     (data.respawn_component[e].max_radius - 1.) * angle.sin());
+
+                //select a random direction
+                let angle = rng.gen_range(0., consts::PI*2.) as f32;
+                let speed = rng.gen_range(0., data.respawn_component[e].max_speed);
+                data.velocity[e] = Vector2::new(speed * angle.cos(), speed * angle.sin());
+            }
+        }
+    }
+}
+
 
 components! {
     struct MyComponents {
         #[hot] transform: Transform,
         #[hot] velocity: Vector2<f32>,
+        #[hot] max_velocity: f32,
         #[hot] sprite: Sprite,
         #[hot] bounding_box: BoundingBox,
         #[cold] player_component: PlayerComponent,
+        #[cold] respawn_component: RespawnComponent,
     }
 }
 
@@ -304,6 +368,14 @@ systems! {
             motion: EntitySystem<MotionSystem> = EntitySystem::new(
                 MotionSystem,
                 aspect!(<MyComponents> all: [transform, velocity])
+            ),
+            max_vel: EntitySystem<MaxVelSystem> = EntitySystem::new(
+                MaxVelSystem{}, 
+                aspect!(<MyComponents> all: [velocity, max_velocity])
+            ),
+            respawn: EntitySystem<RespawnSystem> = EntitySystem::new(
+                RespawnSystem{},
+                aspect!(<MyComponents> all: [velocity, transform, respawn_component])
             ),
         },
         passive: {}
@@ -335,10 +407,14 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
     let player_box = BoundingBox { offset: Vector2::new(0.0, 0.0),
                                    size: Vector2::new(10.0, 10.0) };
 
+    let respawn_comp = RespawnComponent{max_radius: 150.0, max_speed: 1.0};
+
 
     // Create some entites with some components
     let player_entity = world.create_entity(
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
+            data.velocity.add(&entity, Vector2::new(0.0, 0.0));
+            data.max_velocity.add(&entity, 4.0);
             data.transform.add(&entity, player_transform);
             data.sprite.add(&entity, test_sprite);
             data.player_component.add(&entity, PlayerComponent::new());
@@ -356,7 +432,9 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
     world.create_entity(
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
             data.transform.add(&entity, transform3);
+            data.velocity.add(&entity, Vector2::new(0.0, 0.0));
             data.sprite.add(&entity, test_sprite3);
+            data.respawn_component.add(&entity, respawn_comp.clone());
         }
     );
 
@@ -369,8 +447,8 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
     ));
 
     world.systems.input.init(EntitySystem::new(
-        InputSystem{event_pump: event_pump, should_exit:false},
-        aspect!(<MyComponents> all: [transform, player_component]))
+        InputSystem{event_pump: event_pump, should_exit:false, mouse_pos: na::zero()},
+        aspect!(<MyComponents> all: [velocity, player_component]))
     );
 
     world.systems.collision.init(EntitySystem::new(
