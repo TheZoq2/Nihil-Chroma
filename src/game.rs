@@ -131,6 +131,8 @@ impl EntityProcess for InputSystem {
         //Run the event loop and store all the keycodes that were pressed
         let mut keys = Vec::<(Keycode, bool)>::new();
 
+        let mut new_angle = None;
+
         for event in self.event_pump.poll_iter() {
             match event {
                 Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
@@ -143,35 +145,57 @@ impl EntityProcess for InputSystem {
                 Event::KeyUp { keycode: Some(code), .. } => {
                     keys.push((code, false));
                 }
+                Event::MouseMotion{x: x, y: y, ..} => {
+                    new_angle = Some((y as f64).atan2(x as f64));
+                }
                 _ => {}
             }
         }
 
         for e in entities
         {
-            let plr = &mut data.player_component[e];
-
-            for key in &keys 
             {
-                let keycode: Option<player::Keys> = match key.0{
-                    Keycode::W => Some(player::Keys::Up),
-                    Keycode::S => Some(player::Keys::Down),
-                    Keycode::D => Some(player::Keys::Right),
-                    Keycode::A => Some(player::Keys::Left),
-                    _ => None
-                };
+                let plr = &mut data.player_component[e];
 
-                match keycode{
-                    Some(code) => plr.set_key(code, key.1),
-                    None => {}
-                };
+                for key in &keys 
+                {
+                    let keycode: Option<player::Keys> = match key.0{
+                        Keycode::W => Some(player::Keys::Up),
+                        Keycode::S => Some(player::Keys::Down),
+                        Keycode::D => Some(player::Keys::Right),
+                        Keycode::A => Some(player::Keys::Left),
+                        _ => None
+                    };
+
+                    match keycode{
+                        Some(code) => plr.set_key(code, key.1),
+                        None => {}
+                    };
+                }
             }
 
-
             //All keys have been handled, let's use them
-            if plr.get_key(player::Keys::Up)
+            if data.player_component[e].get_key(player::Keys::Up)
             {
-                println!("Up button pressed");
+                data.transform[e].pos += Vector2::new(0.0, -1.0);
+            }
+            if data.player_component[e].get_key(player::Keys::Down)
+            {
+                data.transform[e].pos += Vector2::new(0.0, 1.0);
+            }
+            if data.player_component[e].get_key(player::Keys::Right)
+            {
+                data.transform[e].pos += Vector2::new(1.0, 0.0);
+            }
+            if data.player_component[e].get_key(player::Keys::Left)
+            {
+                data.transform[e].pos += Vector2::new(-1.0, 0.0);
+            }
+
+            match new_angle
+            {
+                Some(angle) => data.transform[e].angle = angle,
+                None => {}
             }
         }
     }
