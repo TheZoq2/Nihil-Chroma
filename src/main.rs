@@ -55,19 +55,24 @@ pub fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
-    let resolution = (1600, 900);
+    let resolution = (800, 450);
+    let upscaling = 2;
 
-    let window = video_subsystem.window("rust-sdl2 demo: Video", resolution.0, resolution.1)
+    let window = video_subsystem.window("rust-sdl2 demo: Video", resolution.0 * upscaling, resolution.1 * upscaling)
         .position_centered()
         .opengl()
         .build()
         .unwrap();
 
+    //The renderer which actually renders to the game window
     let mut renderer = window.renderer().build().unwrap();
 
+    //Renderer where the game is rendered in full color
+    let game_surface = Surface::new(resolution.0, resolution.1, PixelFormatEnum::RGB888).unwrap();
+    let mut game_renderer = Renderer::from_surface(game_surface).unwrap();
 
-    let texture = Rc::new(load_texture(&renderer, String::from("data/test.png")));
-    let texture2 = Rc::new(load_texture(&renderer, String::from("data/test2.png")));
+    let texture = Rc::new(load_texture(&game_renderer, String::from("data/test.png")));
+    let texture2 = Rc::new(load_texture(&game_renderer, String::from("data/test2.png")));
 
 
     let mut test_sprite = sprite::Sprite::new(texture);
@@ -89,24 +94,69 @@ pub fn main() {
                 _ => {}
             }
         }
-        // The rest of the game loop goes here...
-        
-        let game_surface = Surface::new(resolution.0, resolution.1, PixelFormatEnum::RGB888);
 
-        game_renderer = Renderer::from_surface(game_surface);
+        game_renderer.clear();
+
+        test_sprite.draw(&mut game_renderer);
+        test_sprite2.draw(&mut game_renderer);
         
+        //Careful, this overshadows the game surface outside the loop.
+        let game_surface = game_renderer.surface().unwrap();
+
+        //Creating a new texture to which we will 'copy' the pixels from the game renderer and make
+        //some of them grayscale
+        let mut game_texture = renderer.create_texture_streaming(
+                    PixelFormatEnum::RGB888,
+                    resolution.0,
+                    resolution.1).unwrap();
+
+        game_texture.with_lock(None, |buffer: &mut [u8], pitch: usize|{
+            let surface_data = game_surface.without_lock().unwrap();
+
+            for y in 0..resolution.1
+            {
+                for x in 0..resolution.0
+                {
+
+                    let is_in_cone = false;
+
+
+                    //Doing the grayscale stuff
+                    let surface_offset = (y) * game_surface.pitch() as u32 + (x) * 4;
+
+                    let raw_r = surface_data[(surface_offset + 0) as usize];
+                    let raw_g = surface_data[(surface_offset + 1) as usize];
+                    let raw_b = surface_data[(surface_offset + 2) as usize];
+
+                    let texture_offset = y*pitch as u32 + x*3;
+                    if is_in_cone
+                    {
+                        buffer[(texture_offset + 0) as usize] = raw_r;
+                        buffer[(texture_offset + 1) as usize] = raw_g;
+                        buffer[(texture_offset + 2) as usize] = raw_b;
+                    }
+                    else
+                    {
+                        let gray = ((raw_r as f32 + raw_g as f32 + raw_b as f32) / 3.0) as u8;
+
+                        buffer[(texture_offset + 0) as usize] = gray;
+                        buffer[(texture_offset + 1) as usize] = gray;
+                        buffer[(texture_offset + 2) as usize] = gray;
+                    }
+                }
+            }
+        });
+
         //we don't need to clear the screen here because we will fill the screen with the new
         //texture anyway
         
-        //Do the cone stuff
-
         //Render the new texture on the screen
-        renderer.copy(&r_texture, None, Some(Rect::new(0,0, resolution.0, resolution.1)));
+        renderer.copy(&game_texture, None, None);
 
         renderer.present();
         
         test_sprite.set_angle(angle);
-        angle += 0.01;
+        angle += 6.0;
     }
 }
 
