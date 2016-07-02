@@ -204,15 +204,19 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
 {
     let mut world = World::<MySystems>::new();
 
-    let texture = Rc::new(load_texture(&game_renderer, String::from("data/test.png")));
-    let texture2 = Rc::new(load_texture(&game_renderer, String::from("data/test2.png")));
+    let good_texture = Rc::new(load_texture(&game_renderer, String::from("data/good.png")));
+    let neutral_texture = Rc::new(load_texture(&game_renderer, String::from("data/neutral.png")));
+    let bad_texture = Rc::new(load_texture(&game_renderer, String::from("data/bad.png")));
 
-    let test_sprite = Sprite::new(texture);
-    let test_sprite2 = Sprite::new(texture2);
+    let test_sprite = Sprite::new(good_texture);
+    let test_sprite2 = Sprite::new(neutral_texture);
+    let test_sprite3 = Sprite::new(bad_texture);
 
     let transform1 = Transform { pos: Vector2::new(0.0, 0.0), angle: 0.0,
-                                 scale: Vector2::new(1.0, 1.0) };
+                                 scale: Vector2::new(0.5, 0.5) };
     let transform2 = Transform { pos: Vector2::new(150.0, 150.0), angle: 0.0,
+                                 scale: Vector2::new(0.5, 0.5) };
+    let transform3 = Transform { pos: Vector2::new(150.0, 300.0), angle: 0.0,
                                  scale: Vector2::new(0.5, 0.5) };
 
 
@@ -229,6 +233,13 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
             data.transform.add(&entity, transform2);
             data.sprite.add(&entity, test_sprite2);
+        }
+    );
+
+    world.create_entity(
+        |entity: BuildData<MyComponents>, data: &mut MyComponents| {
+            data.transform.add(&entity, transform3);
+            data.sprite.add(&entity, test_sprite3);
         }
     );
 
