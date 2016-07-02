@@ -19,6 +19,9 @@ use sdl2::EventPump;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
+use player::{PlayerComponent};
+use player;
+
 
 pub struct RenderingSystem<'a> {
     pub renderer: RefCell<Renderer<'a>>,
@@ -125,13 +128,50 @@ impl System for InputSystem {
 impl EntityProcess for InputSystem {
     fn process(&mut self, entities: EntityIter<MyComponents>, data: &mut DataHelper<MyComponents, ()>)
     {
+        //Run the event loop and store all the keycodes that were pressed
+        let mut keys = Vec::<(Keycode, bool)>::new();
+
         for event in self.event_pump.poll_iter() {
             match event {
                 Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                     self.should_exit = true;
                     return;
                 },
+                Event::KeyDown { keycode: Some(code), .. } => {
+                    keys.push((code, true));
+                },
+                Event::KeyUp { keycode: Some(code), .. } => {
+                    keys.push((code, false));
+                }
                 _ => {}
+            }
+        }
+
+        for e in entities
+        {
+            let plr = &mut data.player_component[e];
+
+            for key in &keys 
+            {
+                let keycode: Option<player::Keys> = match key.0{
+                    Keycode::W => Some(player::Keys::Up),
+                    Keycode::S => Some(player::Keys::Down),
+                    Keycode::D => Some(player::Keys::Right),
+                    Keycode::A => Some(player::Keys::Left),
+                    _ => None
+                };
+
+                match keycode{
+                    Some(code) => plr.set_key(code, key.1),
+                    None => {}
+                };
+            }
+
+
+            //All keys have been handled, let's use them
+            if plr.get_key(player::Keys::Up)
+            {
+                println!("Up button pressed");
             }
         }
     }
@@ -143,7 +183,7 @@ components! {
         #[hot] transform: Transform,
         #[hot] sprite: Sprite,
         #[hot] angle: f32,
-        #[cold] player: bool,
+        #[cold] player_component: PlayerComponent,
     }
 }
 
@@ -181,6 +221,7 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
             data.transform.add(&entity, transform1);
             data.sprite.add(&entity, test_sprite);
+            data.player_component.add(&entity, PlayerComponent::new());
         }
     );
 
@@ -200,7 +241,8 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
     ));
 
     world.systems.input.init(
-            EntitySystem::new(InputSystem{event_pump: event_pump, should_exit:false}, Aspect::all())
+            EntitySystem::new(InputSystem{event_pump: event_pump, should_exit:false}, 
+            aspect!(<MyComponents> all: [transform, player_component]))
         );
 
     return world;
