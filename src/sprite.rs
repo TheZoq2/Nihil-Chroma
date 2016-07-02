@@ -86,7 +86,7 @@ impl Sprite
             &self.texture, 
             None, 
             Some(Rect::new(self.pos.x as i32, self.pos.y as i32, self.size.x as u32, self.size.y as u32)),
-            self.angle,
+            self.angle.to_degrees(),
             None,
             false,
             false).unwrap();
