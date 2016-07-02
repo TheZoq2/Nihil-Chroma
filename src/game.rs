@@ -11,7 +11,7 @@ use nalgebra::{Vector2};
 use ecs::{World, BuildData, System, DataHelper, EntityIter};
 use ecs::system::{EntityProcess, EntitySystem, LazySystem};
 
-use sprite::{Sprite, load_texture};
+use sprite::{Sprite, Transform, load_texture};
 use constants::*;
 
 pub struct RenderingSystem<'a> {
@@ -34,17 +34,9 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
 
         game_renderer.clear();
 
-        // test_sprite.draw(&mut game_renderer);
-        // test_sprite2.draw(&mut game_renderer);
         for e in entities {
-            let pos = data.position[e];
-            // let scale = data.scale[e];
-
-            // Update sprite with data from components
-            data.sprite[e].set_position(pos);
-            // data.sprite[e].set_scale(scale);
-
-            data.sprite[e].draw(&mut game_renderer);
+            let ref transform = data.transform[e];
+            data.sprite[e].draw(&transform, &mut game_renderer);
         }
 
         let game_surface = game_renderer.surface().unwrap();
@@ -100,7 +92,6 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
 
         renderer.present();
 
-        // test_sprite.set_angle(angle);
         self.angle += 0.03;
 
         if self.angle > consts::PI * 2.0
@@ -116,10 +107,8 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
 
 components! {
     struct MyComponents {
-        #[hot] position: Vector2<f32>,
+        #[hot] transform: Transform,
         #[hot] sprite: Sprite,
-        #[hot] scale: Vector2<f32>,
-        #[hot] angle: f32,
     }
 }
 
@@ -143,23 +132,25 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
     let texture2 = Rc::new(load_texture(&game_renderer, String::from("data/test2.png")));
 
     let test_sprite = Sprite::new(texture);
-    let mut test_sprite2 = Sprite::new(texture2);
-    test_sprite2.set_scale(Vector2::new(0.5, 0.5));
+    let test_sprite2 = Sprite::new(texture2);
+
+    let transform1 = Transform { pos: Vector2::new(0.0, 0.0), angle: 0.0,
+                                 scale: Vector2::new(1.0, 1.0) };
+    let transform2 = Transform { pos: Vector2::new(150.0, 150.0), angle: 0.0,
+                                 scale: Vector2::new(0.5, 0.5) };
 
 
     // Create some entites with some components
     world.create_entity(
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
-            data.position.add(&entity, Vector2::new(0.0, 0.0));
+            data.transform.add(&entity, transform1);
             data.sprite.add(&entity, test_sprite);
-            data.angle.add(&entity, 0.0);
         }
     );
 
     world.create_entity(
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
-            data.position.add(&entity, Vector2::new(150.0, 150.0));
-            data.scale.add(&entity, Vector2::new(1.0, 1.0));
+            data.transform.add(&entity, transform2);
             data.sprite.add(&entity, test_sprite2);
         }
     );
@@ -169,7 +160,7 @@ pub fn create_world<'a>(renderer: Renderer<'static>,
 
     world.systems.rendering.init(EntitySystem::new(
         RenderingSystem {renderer: renderref, game_renderer: game_renderref, angle: 0.0},
-        aspect!(<MyComponents> all: [position, sprite])
+        aspect!(<MyComponents> all: [transform, sprite])
     ));
 
     return world;
