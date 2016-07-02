@@ -12,9 +12,9 @@ mod game;
 mod constants;
 mod player;
 
+use std::rc::Rc;
+
 use sdl2::pixels::{Color, PixelFormatEnum};
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
 use sdl2::render::{Renderer};
 use sdl2::surface::Surface;
 
@@ -41,7 +41,11 @@ pub fn main() {
     let mut game_renderer = Renderer::from_surface(game_surface).unwrap();
     game_renderer.set_draw_color(Color::RGB(100, 150, 50));
 
-    let mut event_pump = sdl_context.event_pump().unwrap();
+    let obama_texture = Rc::new(sprite::load_texture(
+        &game_renderer, String::from("data/obama.png")
+    ));
+
+    let event_pump = sdl_context.event_pump().unwrap();
 
     let mut world = game::create_world(renderer, game_renderer, event_pump);
 
@@ -49,8 +53,12 @@ pub fn main() {
 
         world.update();
 
+        if world.services.too_few_obamas {
+            game::create_obama(&mut world, &obama_texture);
+        }
+
         let should_exit = world.systems.input.inner.as_ref().unwrap().should_exit;
-        
+
         if should_exit
         {
             return;

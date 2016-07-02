@@ -1,16 +1,16 @@
 extern crate ecs;
 extern crate nalgebra;
 
-use sdl2::render::{Renderer};
+use sdl2::render::{Renderer, Texture};
 use sdl2::pixels::PixelFormatEnum;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::f64::consts;
-use nalgebra::{Vector2, distance_squared};
+use std::ops::Deref;
+use nalgebra::{Vector2};
 
-use ecs::{Entity, World, BuildData, System, DataHelper, EntityIter};
+use ecs::{ServiceManager, Entity, World, BuildData, System, DataHelper, EntityIter};
 use ecs::system::{EntityProcess, EntitySystem, LazySystem};
-use ecs::Aspect;
 
 use sprite::{Sprite, Transform, load_texture};
 use constants::*;
@@ -21,6 +21,23 @@ use sdl2::keyboard::Keycode;
 
 use player::{PlayerComponent};
 use player;
+
+pub struct MyServices {
+    // pub remove_entity: Vec<Entity>,
+    pub too_few_obamas: bool,
+}
+
+impl ServiceManager for MyServices {
+}
+
+impl Default for MyServices {
+    fn default() -> MyServices{
+        MyServices {
+            // remove_entity: Vec::new(),
+            too_few_obamas: false,
+        }
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct BoundingCircle {
@@ -43,12 +60,12 @@ pub struct RenderingSystem<'a> {
 
 impl<'a> System for RenderingSystem<'a> {
     type Components = MyComponents;
-    type Services = ();
+    type Services = MyServices;
 }
 
 impl<'a> EntityProcess for RenderingSystem<'a> {
     fn process(&mut self, entities: EntityIter<MyComponents>,
-                       data: &mut DataHelper<MyComponents, ()>)
+                       data: &mut DataHelper<MyComponents, MyServices>)
     {
         let mut renderer = self.renderer.borrow_mut();
         let mut game_renderer = self.game_renderer.borrow_mut();
@@ -133,12 +150,12 @@ pub struct InputSystem {
 
 impl System for InputSystem {
     type Components = MyComponents;
-    type Services = ();
+    type Services = MyServices;
 }
 
 impl EntityProcess for InputSystem {
     fn process(&mut self, entities: EntityIter<MyComponents>,
-               data: &mut DataHelper<MyComponents, ()>)
+               data: &mut DataHelper<MyComponents, MyServices>)
     {
         //Run the event loop and store all the keycodes that were pressed
         let mut keys = Vec::<(Keycode, bool)>::new();
@@ -157,7 +174,7 @@ impl EntityProcess for InputSystem {
                 Event::KeyUp { keycode: Some(code), .. } => {
                     keys.push((code, false));
                 }
-                Event::MouseMotion{x: x, y: y, ..} => {
+                Event::MouseMotion{x, y, ..} => {
                     mouse_pos = Some(Vector2::new(x as f32, y as f32));
                 }
                 _ => {}
@@ -219,8 +236,8 @@ pub struct CollisionSystem {
 
 impl System for CollisionSystem {
     type Components = MyComponents;
-    type Services = ();
-    }
+    type Services = MyServices;
+}
 
 fn are_colliding(tr1: &Transform, bb1: &BoundingCircle,
                  tr2: &Transform, bb2: &BoundingCircle) -> bool
@@ -235,7 +252,7 @@ fn are_colliding(tr1: &Transform, bb1: &BoundingCircle,
 
 impl EntityProcess for CollisionSystem {
     fn process(&mut self, entities: EntityIter<MyComponents>,
-               data: &mut DataHelper<MyComponents, ()>)
+               data: &mut DataHelper<MyComponents, MyServices>)
     {
         let mut player_transform: Transform = Default::default();
         let mut player_box: BoundingCircle = Default::default();
@@ -259,17 +276,50 @@ pub struct MotionSystem;
 
 impl System for MotionSystem {
     type Components = MyComponents;
-    type Services = ();
+    type Services = MyServices;
 }
 
 impl EntityProcess for MotionSystem {
     fn process(&mut self, entities: EntityIter<MyComponents>,
-               data: &mut DataHelper<MyComponents, ()>)
+               data: &mut DataHelper<MyComponents, MyServices>)
     {
         for e in entities {
             let velocity = data.velocity[e];
             data.transform[e].pos += velocity;
         }
+    }
+}
+
+pub struct ObamaSystem;
+pub struct ObamaComponent;
+
+impl System for ObamaSystem {
+    type Components = MyComponents;
+    type Services = MyServices;
+}
+
+fn way_off_screen(pos: Vector2<f32>) -> bool {
+    (pos.x as i32) < -100 || pos.x as u32 > RESOLUTION.0 + 100 ||
+        (pos.y as i32) < -100 || pos.y as u32 > RESOLUTION.1 + 100
+}
+
+impl EntityProcess for ObamaSystem {
+    fn process(&mut self, entities: EntityIter<MyComponents>,
+               data: &mut DataHelper<MyComponents, MyServices>)
+    {
+        let mut obama_amount = 0;
+
+        for e in entities {
+            obama_amount += 1;
+
+            // Remove obamas that are too far out
+            let position = data.transform[e].pos;
+            if way_off_screen(position) {
+                data.remove_entity(e.deref().deref().clone());
+            }
+        }
+
+        data.services.too_few_obamas = obama_amount < 4;
     }
 }
 
@@ -281,12 +331,13 @@ components! {
         #[hot] sprite: Sprite,
         #[hot] bounding_box: BoundingCircle,
         #[cold] player_component: PlayerComponent,
+        #[cold] obama: ObamaComponent,
     }
 }
 
 systems! {
-    // struct MySystems<MyComponents, ()>;
-    struct MySystems<MyComponents, ()> {
+    // struct MySystems<MyComponents, MyServices>;
+    struct MySystems<MyComponents, MyServices> {
         active: {
             rendering: LazySystem<EntitySystem<RenderingSystem<'static>>> = LazySystem::new(),
             input: LazySystem<EntitySystem<InputSystem>> = LazySystem::new(),
@@ -295,14 +346,36 @@ systems! {
                 MotionSystem,
                 aspect!(<MyComponents> all: [transform, velocity])
             ),
+            obama: EntitySystem<ObamaSystem> = EntitySystem::new(
+                ObamaSystem,
+                aspect!(<MyComponents> all: [obama, transform])
+            ),
         },
         passive: {}
     }
 }
 
+pub fn create_obama(world: &mut World<MySystems>, obama_texture: &Rc<Texture>)
+{
+    let obama_sprite = Sprite::new(obama_texture.clone());
+    let obama_pos = Vector2::new(0.0, 0.0);
+    let obama_transform = Transform { pos: obama_pos, angle: 0.0,
+                                      scale: Vector2::new(0.5, 0.5) };
 
-pub fn create_world<'a>(renderer: Renderer<'static>,
-                        game_renderer: Renderer<'static>, event_pump: EventPump) -> World<MySystems>
+    world.create_entity(
+        |entity: BuildData<MyComponents>, data: &mut MyComponents| {
+            data.sprite.add(&entity, obama_sprite);
+            data.transform.add(&entity, obama_transform);
+            data.velocity.add(&entity, Vector2::new(1.0, 1.0));
+            data.obama.add(&entity, ObamaComponent);
+        }
+    );
+}
+
+
+pub fn create_world(renderer: Renderer<'static>,
+                    game_renderer: Renderer<'static>,
+                    event_pump: EventPump) -> World<MySystems>
 {
     let mut world = World::<MySystems>::new();
 
