@@ -81,7 +81,7 @@ impl Sprite
         renderer.copy_ex(
             &self.texture,
             None,
-            Some(Rect::new(transform.pos.x as i32, transform.pos.y as i32,
+            Some(Rect::new((transform.pos.x - sizex / 2.)as i32, (transform.pos.y - sizey / 2.) as i32,
                            sizex as u32, sizey as u32)),
             transform.angle.to_degrees(),
             None,
