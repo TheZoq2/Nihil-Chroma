@@ -1,7 +1,7 @@
 extern crate ecs;
 extern crate nalgebra;
 
-use ecs::{ServiceManager};
+use ecs::{Entity, ServiceManager};
 use nalgebra::Vector2;
 use sprite::{Sprite};
 use player::{PlayerComponent};
@@ -64,8 +64,10 @@ components! {
 }
 
 pub struct MyServices {
-    // pub remove_entity: Vec<Entity>,
+    pub swap_sprite_with_text: Vec<(Entity, String)>,
     pub too_few_obamas: bool,
+    pub new_points: u32,
+    pub hit_bad: bool,
 }
 
 impl ServiceManager for MyServices {
@@ -74,8 +76,10 @@ impl ServiceManager for MyServices {
 impl Default for MyServices {
     fn default() -> MyServices{
         MyServices {
-            // remove_entity: Vec::new(),
+            swap_sprite_with_text: Vec::new(),
             too_few_obamas: false,
+            new_points: 0,
+            hit_bad: false,
         }
     }
 }

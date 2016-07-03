@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::f64::consts;
 use rand::Rng;
 
-use nalgebra::{Vector2, Norm, Absolute};
+use nalgebra::{Vector2, Norm};
 use std::ops::Deref;
 
 use rand::distributions::{IndependentSample, Range};
@@ -249,23 +249,13 @@ pub fn create_world(renderer: Renderer<'static>,
     let mut world = World::<MySystems>::new();
 
     let good_texture = Rc::new(load_texture(&game_renderer, "data/good.png"));
-    let neutral_texture = Rc::new(
-        load_texture(&game_renderer, "data/neutral.png"));
-    let bad_texture = Rc::new(load_texture(&game_renderer, "data/bad.png"));
-
     let test_sprite = Sprite::new(good_texture);
-    let test_sprite2 = Sprite::new(neutral_texture);
-    let test_sprite3 = Sprite::new(bad_texture);
-
     let sprite_scale = 0.25;
 
     let player_transform = Transform { pos: Vector2::new(RESOLUTION.0 as f32 / 2., RESOLUTION.1 as f32 / 2.0), angle: 0.0,
                                  scale: Vector2::new(sprite_scale, sprite_scale) };
 
     let player_box = BoundingCircle { radius: 56.0 * sprite_scale };
-
-    let respawn_comp = RespawnComponent{max_radius: 400.0, max_speed: 4.0, min_speed: 2.0};
-
 
     // Create some entites with some components
     let player_entity = world.create_entity(
@@ -295,7 +285,7 @@ pub fn create_world(renderer: Renderer<'static>,
     );
 
     world.systems.collision.init(EntitySystem::new(
-        CollisionSystem {player: player_entity, new_points: 0, hit_bad:false},
+        CollisionSystem {player: player_entity},
         aspect!(<MyComponents> all: [transform, bounding_box, ball_type] none: [player_component])
     ));
 

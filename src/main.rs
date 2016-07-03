@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 extern crate image;
 extern crate sdl2;
+extern crate sdl2_ttf;
 extern crate nalgebra;
 extern crate rand;
 extern crate time;
@@ -21,30 +22,34 @@ use rand::Rng;
 
 use std::fs;
 use std::rc::Rc;
+use std::path::Path;
 
 use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::render::{Renderer, Texture};
 use sdl2::surface::Surface;
+use sdl2_ttf::Font;
 
 use nalgebra::Vector2;
+use ecs::{Entity, World};
 
 use sprite::load_texture;
+use sprite::Sprite;
 
 use constants::*;
 
-use game::{RespawnComponent};
+use game::{RespawnComponent, MySystems};
 use components::{MyComponents, Transform, BallType};
 
-struct BallSpawner 
+struct BallSpawner
 {
     spawn_time: f32,
     last_spawn: f32,
-    
+
     types: Vec<(BallType, Rc<Texture>)>,
 }
 impl BallSpawner
 {
-    pub fn new(types: Vec<(BallType, Rc<Texture>)>) -> BallSpawner 
+    pub fn new(types: Vec<(BallType, Rc<Texture>)>) -> BallSpawner
     {
         BallSpawner {
             spawn_time: 3.,
@@ -54,7 +59,7 @@ impl BallSpawner
         }
     }
 
-    pub fn do_spawn(&mut self, world: &mut ecs::World<game::MySystems>) 
+    pub fn do_spawn(&mut self, world: &mut ecs::World<game::MySystems>)
     {
         let curr_time = time::precise_time_s() as f32;
         if curr_time > self.last_spawn + self.spawn_time
@@ -92,9 +97,35 @@ impl BallSpawner
     }
 }
 
+fn create_text_texture<'a>(text: &'a str, font: &Font, world: &mut World<MySystems>) -> Texture
+{
+    // render a surface, and convert it to a texture bound to the renderer
+    let surface = font.render(text)
+        .blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+    let renderer = world.systems.rendering.inner.as_ref().unwrap().game_renderer.borrow_mut();
+    renderer.create_texture_from_surface(&surface).unwrap()
+}
+
+fn create_text_entity<'a>(text: &'a str, font: &Font, world: &mut World<MySystems>) -> Entity
+{
+    let texture = create_text_texture(text, font, world);
+
+    // Create text entity
+    world.create_entity(
+        |entity: ecs::BuildData<MyComponents>, data: &mut MyComponents| {
+            data.transform.add(&entity, Transform {
+                pos: Vector2::new(40.0, 10.0),
+                angle: 0.0,
+                scale: Vector2::new(0.1, 0.1)
+            });
+            data.sprite.add(&entity, Sprite::new(Rc::new(texture)));
+        })
+}
+
 pub fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
+    let ttf_context = sdl2_ttf::init().unwrap();
 
     let window = video_subsystem.window(
         "rust-sdl2 demo: Video", RESOLUTION.0 * UPSCALING, RESOLUTION.1 * UPSCALING)
@@ -131,12 +162,17 @@ pub fn main() {
         obama_textures.push(obama_texture);
     }
 
+    // Create font
+    let font = ttf_context.load_font(&Path::new("data/font.ttf"), 128).unwrap();
+
     let event_pump = sdl_context.event_pump().unwrap();
 
     let mut world = game::create_world(renderer, game_renderer, event_pump);
     let mut points = 0;
 
-    for i in 0..20
+    let mut score_entity = create_text_entity("Score: 0", &font, &mut world);
+
+    for _ in 0..20
     {
         ball_spawner.spawn_ball(&mut world);
     }
@@ -157,10 +193,16 @@ pub fn main() {
         ball_spawner.do_spawn(&mut world);
 
         //Handle points and endgame
-        let col_system = world.systems.collision.inner.as_ref().unwrap();
-        points += col_system.new_points;
+        let new_points = world.services.new_points;
+        points += new_points;
 
-        if col_system.hit_bad
+        if new_points != 0 {
+            world.remove_entity(score_entity);
+            let score_string = "Score: ".to_string() + &points.to_string();
+            score_entity = create_text_entity(&score_string, &font, &mut world)
+        }
+
+        if world.services.hit_bad
         {
             println!("You died, final score: {}", points);
             return;
