@@ -7,8 +7,14 @@ dependencies = [
  "nalgebra 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "sdl2 0.20.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2_ttf 0.19.0 (git+https://github.com/andelf/rust-sdl2_ttf)",
  "time 0.1.35 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "bitflags"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "bitflags"
@@ -283,6 +289,16 @@ version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libc 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "sdl2_ttf"
+version = "0.19.0"
+source = "git+https://github.com/andelf/rust-sdl2_ttf#c97b95cb28c2d245ea97b6c0eb0357eb162485b8"
+dependencies = [
+ "bitflags 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2 0.20.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2-sys 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
