@@ -2,5 +2,5 @@
 /////////////////////////////////////////////////
 //              Global variables
 /////////////////////////////////////////////////
-pub const RESOLUTION: (u32, u32) = (400, 400);
+pub const RESOLUTION: (u32, u32) = (350, 350);
 pub const UPSCALING: u32 = 2;
