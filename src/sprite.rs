@@ -12,7 +12,7 @@ use image::GenericImage;
 use std::rc::{Rc};
 use std::path::Path;
 
-use nalgebra::Vector2;
+use components::Transform;
 
 //Loads a texture from a file and returns an SDL2 texture object
 pub fn load_texture(renderer: &Renderer, path: String) -> sdl2::render::Texture
@@ -40,24 +40,6 @@ pub fn load_texture(renderer: &Renderer, path: String) -> sdl2::render::Texture
     }).unwrap();
 
     result
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Transform
-{
-    pub pos: Vector2<f32>,
-    pub scale: Vector2<f32>,
-    pub angle: f64,
-}
-
-impl Default for Transform {
-    fn default() -> Transform {
-        Transform {
-            pos: Vector2::new(0.0, 0.0),
-            angle: 0.0,
-            scale: Vector2::new(1.0, 1.0)
-        }
-    }
 }
 
 pub struct Sprite
