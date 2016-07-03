@@ -112,9 +112,6 @@ pub fn main() {
 
     let mut ball_spawner = BallSpawner::new(ball_textures);
 
-    let obama_texture = Rc::new(sprite::load_texture(
-        &game_renderer, "data/obama.png"
-    ));
 
     let obama_files = fs::read_dir("data/obamas").unwrap();
     let mut obama_textures = Vec::new();
