@@ -47,7 +47,7 @@ impl BallSpawner
     pub fn new(types: Vec<(BallType, Rc<Texture>)>) -> BallSpawner 
     {
         BallSpawner {
-            spawn_time: 2.,
+            spawn_time: 3.,
             last_spawn: 0.,
 
             types: types,
