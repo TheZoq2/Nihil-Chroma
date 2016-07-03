@@ -1,11 +1,16 @@
 extern crate ecs;
 
+use nalgebra::{Vector2};
+
 use ecs::{Entity, System, EntityIter, DataHelper};
 use ecs::system::{EntityProcess};
-use components::{MyServices, MyComponents, Transform, BoundingCircle};
+use components::{MyServices, MyComponents, Transform, BoundingCircle, BallType};
 
 pub struct CollisionSystem {
     pub player: Entity,
+
+    pub new_points: i32,
+    pub hit_bad: bool,
 }
 
 impl System for CollisionSystem {
@@ -28,6 +33,8 @@ impl EntityProcess for CollisionSystem {
     fn process(&mut self, entities: EntityIter<MyComponents>,
                data: &mut DataHelper<MyComponents, MyServices>)
     {
+        self.new_points = 0;
+
         let mut player_transform: Transform = Default::default();
         let mut player_box: BoundingCircle = Default::default();
         data.with_entity_data(&self.player, |entity, data| {
@@ -40,7 +47,15 @@ impl EntityProcess for CollisionSystem {
             let bounding_box = data.bounding_box[e];
 
             if are_colliding(&player_transform, &player_box, &transform, &bounding_box) {
-                // println!("A collision has occurred!");
+                //Respawn the ball
+                data.transform[e].pos = Vector2::new(5000., 5000.);
+
+                match data.ball_type[e]
+                {
+                    BallType::Good => self.new_points += 1,
+                    BallType::Neutral => {},
+                    BallType::Bad => self.hit_bad = true,
+                }
             }
         }
     }

@@ -257,7 +257,7 @@ pub fn create_world(renderer: Renderer<'static>,
 
     let sprite_scale = 0.25;
 
-    let player_transform = Transform { pos: Vector2::new(RESOLUTION.0 as f32, RESOLUTION.1 as f32), angle: 0.0,
+    let player_transform = Transform { pos: Vector2::new(RESOLUTION.0 as f32 / 2., RESOLUTION.1 as f32 / 2.0), angle: 0.0,
                                  scale: Vector2::new(sprite_scale, sprite_scale) };
 
     let player_box = BoundingCircle { radius: 56.0 * sprite_scale };
@@ -293,8 +293,8 @@ pub fn create_world(renderer: Renderer<'static>,
     );
 
     world.systems.collision.init(EntitySystem::new(
-        CollisionSystem {player: player_entity},
-        aspect!(<MyComponents> all: [transform, bounding_box] none: [player_component])
+        CollisionSystem {player: player_entity, new_points: 0, hit_bad:false},
+        aspect!(<MyComponents> all: [transform, bounding_box, ball_type] none: [player_component])
     ));
 
     return world;

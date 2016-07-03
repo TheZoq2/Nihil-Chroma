@@ -7,6 +7,14 @@ use sprite::{Sprite};
 use player::{PlayerComponent};
 use game::RespawnComponent;
 
+#[derive(Clone)]
+pub enum BallType
+{
+    Good,
+    Neutral,
+    Bad,
+}
+
 pub struct ObamaComponent;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -51,6 +59,7 @@ components! {
         #[cold] player_component: PlayerComponent,
         #[cold] obama: ObamaComponent,
         #[cold] respawn_component: RespawnComponent,
+        #[cold] ball_type: BallType,
     }
 }
 

@@ -33,54 +33,62 @@ use sprite::load_texture;
 use constants::*;
 
 use game::{RespawnComponent};
-use components::{MyComponents, Transform};
+use components::{MyComponents, Transform, BallType};
 
 struct BallSpawner 
 {
     spawn_time: f32,
     last_spawn: f32,
     
-    textures: Vec<Rc<Texture>>,
+    types: Vec<(BallType, Rc<Texture>)>,
 }
 impl BallSpawner
 {
-    pub fn new(textures: Vec<Rc<Texture>>) -> BallSpawner 
+    pub fn new(types: Vec<(BallType, Rc<Texture>)>) -> BallSpawner 
     {
         BallSpawner {
-            spawn_time: 4.,
+            spawn_time: 2.,
             last_spawn: 0.,
 
-            textures: textures,
+            types: types,
         }
     }
 
     pub fn do_spawn(&mut self, world: &mut ecs::World<game::MySystems>) 
     {
         let curr_time = time::precise_time_s() as f32;
-        let mut rng = rand::thread_rng();
-
         if curr_time > self.last_spawn + self.spawn_time
         {
-            let respawn_comp = RespawnComponent{max_radius: 400.0, max_speed: 80.0, min_speed: 40.0};
-            let transform = Transform { pos: Vector2::new(600.0, 600.0), angle: 0.0,
-                                 scale: Vector2::new(0.25, 0.25) };
-
-            let bound = components::BoundingCircle { radius: 28.0 * 0.5 };
-
-            //TODO: This could cause a crash depending on what the .clone method does
-            let sprite = sprite::Sprite::new(self.textures[rng.gen_range(0, self.textures.len())].clone());
-
-            world.create_entity(
-            |entity: ecs::BuildData<MyComponents>, data: &mut MyComponents| {
-                data.transform.add(&entity, transform);
-                data.velocity.add(&entity, Vector2::new(0.0, 0.0));
-                data.sprite.add(&entity, sprite);
-                data.respawn_component.add(&entity, respawn_comp.clone());
-                data.bounding_box.add(&entity, bound);
-            });
+            self.spawn_ball(world);
 
             self.last_spawn = curr_time;
         }
+    }
+
+    pub fn spawn_ball(&self, world: &mut ecs::World<game::MySystems>)
+    {
+        let mut rng = rand::thread_rng();
+
+        let respawn_comp = RespawnComponent{max_radius: 400.0, max_speed: 80.0, min_speed: 40.0};
+        let transform = Transform { pos: Vector2::new(600.0, 600.0), angle: 0.0,
+                             scale: Vector2::new(0.25, 0.25) };
+
+        let bound = components::BoundingCircle { radius: 28.0 * 0.5 };
+
+        let ball_type = self.types[rng.gen_range(0, self.types.len())].clone();
+
+        //TODO: This could cause a crash depending on what the .clone method does
+        let sprite = sprite::Sprite::new(ball_type.1.clone());
+
+        world.create_entity(
+        |entity: ecs::BuildData<MyComponents>, data: &mut MyComponents| {
+            data.transform.add(&entity, transform);
+            data.velocity.add(&entity, Vector2::new(0.0, 0.0));
+            data.sprite.add(&entity, sprite);
+            data.respawn_component.add(&entity, respawn_comp.clone());
+            data.bounding_box.add(&entity, bound);
+            data.ball_type.add(&entity, ball_type.0.clone());
+        });
     }
 }
 
@@ -105,9 +113,9 @@ pub fn main() {
     game_renderer.set_draw_color(Color::RGB(200, 80, 50));
 
     let ball_textures = vec!{
-        Rc::new(load_texture(&game_renderer, "data/good.png")),
-        Rc::new(load_texture(&game_renderer, "data/neutral.png")),
-        Rc::new(load_texture(&game_renderer, "data/bad.png")),
+        (BallType::Good, Rc::new(load_texture(&game_renderer, "data/good.png"))),
+        (BallType::Neutral, Rc::new(load_texture(&game_renderer, "data/neutral.png"))),
+        (BallType::Bad, Rc::new(load_texture(&game_renderer, "data/bad.png"))),
     };
 
     let mut ball_spawner = BallSpawner::new(ball_textures);
@@ -126,6 +134,12 @@ pub fn main() {
     let event_pump = sdl_context.event_pump().unwrap();
 
     let mut world = game::create_world(renderer, game_renderer, event_pump);
+    let mut points = 0;
+
+    for i in 0..20
+    {
+        ball_spawner.spawn_ball(&mut world);
+    }
 
     let mut old_time = 0.0;
     'running: loop {
@@ -141,6 +155,16 @@ pub fn main() {
         }
 
         ball_spawner.do_spawn(&mut world);
+
+        //Handle points and endgame
+        let col_system = world.systems.collision.inner.as_ref().unwrap();
+        points += col_system.new_points;
+
+        if col_system.hit_bad
+        {
+            println!("You died, final score: {}", points);
+            return;
+        }
 
         let should_exit = world.systems.input.inner.as_ref().unwrap().should_exit;
 
