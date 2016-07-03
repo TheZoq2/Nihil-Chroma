@@ -17,6 +17,7 @@ use components::Transform;
 //Loads a texture from a file and returns an SDL2 texture object
 pub fn load_texture<'a>(renderer: &Renderer, path: &'a str) -> sdl2::render::Texture
 {
+    println!("Loading texture: {}", path);
     let img = image::open(&Path::new(&path)).unwrap();
 
     let mut result = renderer.create_texture_streaming(
