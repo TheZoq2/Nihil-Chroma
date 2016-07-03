@@ -11,6 +11,8 @@ mod sprite;
 mod game;
 mod constants;
 mod player;
+mod rendering;
+mod components;
 
 use std::rc::Rc;
 

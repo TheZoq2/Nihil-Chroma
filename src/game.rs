@@ -3,7 +3,6 @@ extern crate nalgebra;
 extern crate rand;
 
 use sdl2::render::{Renderer, Texture};
-use sdl2::pixels::PixelFormatEnum;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::f64::consts;
@@ -12,10 +11,10 @@ use nalgebra::{Vector2};
 
 use rand::distributions::{IndependentSample, Range};
 
-use ecs::{ServiceManager, Entity, World, BuildData, System, DataHelper, EntityIter};
+use ecs::{Entity, World, BuildData, System, DataHelper, EntityIter};
 use ecs::system::{EntityProcess, EntitySystem, LazySystem};
 
-use sprite::{Sprite, Transform, load_texture};
+use sprite::{Sprite, load_texture};
 use constants::*;
 
 use sdl2::EventPump;
@@ -25,125 +24,8 @@ use sdl2::keyboard::Keycode;
 use player::{PlayerComponent};
 use player;
 
-pub struct MyServices {
-    // pub remove_entity: Vec<Entity>,
-    pub too_few_obamas: bool,
-}
-
-impl ServiceManager for MyServices {
-}
-
-impl Default for MyServices {
-    fn default() -> MyServices{
-        MyServices {
-            // remove_entity: Vec::new(),
-            too_few_obamas: false,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct BoundingCircle {
-    radius: f32
-}
-
-impl Default for BoundingCircle {
-    fn default() -> BoundingCircle {
-        BoundingCircle {
-            radius: 1.0
-        }
-    }
-}
-
-pub struct RenderingSystem<'a> {
-    pub renderer: RefCell<Renderer<'a>>,
-    pub game_renderer: RefCell<Renderer<'a>>,
-    pub player: ecs::Entity,
-}
-
-impl<'a> System for RenderingSystem<'a> {
-    type Components = MyComponents;
-    type Services = MyServices;
-}
-
-impl<'a> EntityProcess for RenderingSystem<'a> {
-    fn process(&mut self, entities: EntityIter<MyComponents>,
-                       data: &mut DataHelper<MyComponents, MyServices>)
-    {
-        let mut renderer = self.renderer.borrow_mut();
-        let mut game_renderer = self.game_renderer.borrow_mut();
-
-        //Getting some parameters about the player
-        let mut plr_angle = 0.0;
-        let mut player_pos = Vector2::new(0.0, 0.0);
-        data.with_entity_data(&self.player, |entity, data|{
-            plr_angle = data.transform[entity].angle;
-            player_pos = data.transform[entity].pos;
-        });
-
-        // println!("{}", plr_angle);
-
-        game_renderer.clear();
-
-        for e in entities {
-            let ref transform = data.transform[e];
-            data.sprite[e].draw(&transform, &mut game_renderer);
-        }
-
-        let game_surface = game_renderer.surface().unwrap();
-
-        // Creating a new texture to which we will 'copy' the pixels from the
-        // game renderer and make some of them grayscale
-        let mut game_texture = renderer.create_texture_streaming(
-                    PixelFormatEnum::RGB888,
-                    RESOLUTION.0,
-                    RESOLUTION.1).unwrap();
-
-        game_texture.with_lock(None, |buffer: &mut [u8], pitch: usize|{
-            let surface_data = game_surface.without_lock().unwrap();
-
-            for y in 0..RESOLUTION.1
-            {
-                for x in 0..RESOLUTION.0
-                {
-
-                    let is_in_cone = is_in_cone(player_pos, x, y, plr_angle);
-
-                    //Doing the grayscale stuff
-                    let surface_offset = (y) * game_surface.pitch() as u32 + (x) * 4;
-
-                    let raw_r = surface_data[(surface_offset + 0) as usize];
-                    let raw_g = surface_data[(surface_offset + 1) as usize];
-                    let raw_b = surface_data[(surface_offset + 2) as usize];
-
-                    let texture_offset = y*pitch as u32 + x*4;
-                    if is_in_cone
-                    {
-                        buffer[(texture_offset + 0) as usize] = raw_r;
-                        buffer[(texture_offset + 1) as usize] = raw_g;
-                        buffer[(texture_offset + 2) as usize] = raw_b;
-                    }
-                    else
-                    {
-                        let gray = ((raw_r as f32 + raw_g as f32 + raw_b as f32) / 3.0) as u8;
-
-                        buffer[(texture_offset + 0) as usize] = gray;
-                        buffer[(texture_offset + 1) as usize] = gray;
-                        buffer[(texture_offset + 2) as usize] = gray;
-                    }
-                }
-            }
-        }).unwrap();
-
-        //we don't need to clear the screen here because we will fill the screen with the new
-        //texture anyway
-
-        //Render the new texture on the screen
-        renderer.copy(&game_texture, None, None);
-
-        renderer.present();
-    }
-}
+use rendering::RenderingSystem;
+use components::{MyServices, MyComponents, Transform, BoundingCircle, ObamaComponent};
 
 pub struct InputSystem {
     event_pump: EventPump,
@@ -294,7 +176,6 @@ impl EntityProcess for MotionSystem {
 }
 
 pub struct ObamaSystem;
-pub struct ObamaComponent;
 
 impl System for ObamaSystem {
     type Components = MyComponents;
@@ -326,18 +207,6 @@ impl EntityProcess for ObamaSystem {
     }
 }
 
-
-components! {
-    struct MyComponents {
-        #[hot] transform: Transform,
-        #[hot] velocity: Vector2<f32>,
-        #[hot] sprite: Sprite,
-        #[hot] bounding_box: BoundingCircle,
-        #[cold] player_component: PlayerComponent,
-        #[cold] obama: ObamaComponent,
-    }
-}
-
 systems! {
     // struct MySystems<MyComponents, MyServices>;
     struct MySystems<MyComponents, MyServices> {
@@ -361,9 +230,9 @@ systems! {
 fn random_edge_position() -> Vector2<f32>
 {
     // Distance to corners going clockwise
-    let c1 = RESOLUTION.0;
-    let c2 = c1 + RESOLUTION.1;
-    let c3 = c2 + RESOLUTION.0;
+    let c1 = RESOLUTION.0; // top left
+    let c2 = c1 + RESOLUTION.1; // top right
+    let c3 = c2 + RESOLUTION.0; // bottom right
 
     let mut rng = rand::thread_rng();
     let between_corners = Range::new(0, RESOLUTION.0*2 + RESOLUTION.1*2);
@@ -477,30 +346,4 @@ pub fn create_world(renderer: Renderer<'static>,
     ));
 
     return world;
-}
-
-fn is_in_cone(center: Vector2<f32>, x: u32, y: u32, angle: f64) -> bool
-{
-    let cone_size = 0.07;
-
-    let angle_threshold = cone_size * consts::PI * 2.;
-
-    //Center the pixels
-    let x = x as i32 - center.x as i32;
-    let y = y as i32 - center.y as i32;
-
-    let pixel_angle = (y as f64).atan2(x as f64);
-
-    let mut angle_diff = (angle - pixel_angle).abs();
-
-    if angle_diff > consts::PI * (1. - cone_size) * 2.
-    {
-        angle_diff = angle_diff - consts::PI * 2.;
-    }
-
-    if angle_diff < angle_threshold
-    {
-        return true;
-    }
-    false
 }
