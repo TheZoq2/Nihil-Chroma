@@ -19,6 +19,7 @@ mod collision;
 
 use rand::Rng;
 
+use std::fs;
 use std::rc::Rc;
 
 use sdl2::pixels::{Color, PixelFormatEnum};
@@ -104,16 +105,26 @@ pub fn main() {
     game_renderer.set_draw_color(Color::RGB(100, 150, 50));
 
     let ball_textures = vec!{
-        Rc::new(load_texture(&game_renderer, String::from("data/good.png"))),
-        Rc::new(load_texture(&game_renderer, String::from("data/neutral.png"))),
-        Rc::new(load_texture(&game_renderer, String::from("data/bad.png"))),
+        Rc::new(load_texture(&game_renderer, "data/good.png")),
+        Rc::new(load_texture(&game_renderer, "data/neutral.png")),
+        Rc::new(load_texture(&game_renderer, "data/bad.png")),
     };
 
     let mut ball_spawner = BallSpawner::new(ball_textures);
 
     let obama_texture = Rc::new(sprite::load_texture(
-        &game_renderer, String::from("data/obama.png")
+        &game_renderer, "data/obama.png"
     ));
+
+    let obama_files = fs::read_dir("data/obamas").unwrap();
+    let mut obama_textures = Vec::new();
+    for file in obama_files {
+        let filename = file.unwrap().path().to_str().unwrap().to_string();
+        let obama_texture = Rc::new (sprite::load_texture(
+            &game_renderer, &filename
+        ));
+        obama_textures.push(obama_texture);
+    }
 
     let event_pump = sdl_context.event_pump().unwrap();
 
@@ -124,7 +135,7 @@ pub fn main() {
         world.update();
 
         if world.services.too_few_obamas {
-            game::create_obama(&mut world, &obama_texture);
+            game::create_obama(&mut world, &obama_textures);
         }
 
         ball_spawner.do_spawn(&mut world);

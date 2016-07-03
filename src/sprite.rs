@@ -15,7 +15,7 @@ use std::path::Path;
 use components::Transform;
 
 //Loads a texture from a file and returns an SDL2 texture object
-pub fn load_texture(renderer: &Renderer, path: String) -> sdl2::render::Texture
+pub fn load_texture<'a>(renderer: &Renderer, path: &'a str) -> sdl2::render::Texture
 {
     let img = image::open(&Path::new(&path)).unwrap();
 
@@ -26,9 +26,9 @@ pub fn load_texture(renderer: &Renderer, path: String) -> sdl2::render::Texture
 
     //Take the pixels from the image and put them on the texture
     result.with_lock(None, |buffer: &mut [u8], pitch: usize|{
-        for y in 0..img.dimensions().0
+        for y in 0..img.dimensions().1
         {
-            for x in 0..img.dimensions().1
+            for x in 0..img.dimensions().0
             {
                 let offset = y*pitch as u32 + x*4;
                 buffer[(offset + 0) as usize] = img.get_pixel(x, y)[3]; //A

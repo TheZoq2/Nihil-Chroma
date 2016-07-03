@@ -211,7 +211,7 @@ fn random_edge_position() -> Vector2<f32>
     }
 }
 
-pub fn create_obama(world: &mut World<MySystems>, obama_texture: &Rc<Texture>)
+pub fn create_obama(world: &mut World<MySystems>, obama_textures: &Vec<Rc<Texture>>)
 {
     let between_angle = Range::new(0.0f32, (2.0*consts::PI) as f32);
     let mut rng = rand::thread_rng();
@@ -221,6 +221,7 @@ pub fn create_obama(world: &mut World<MySystems>, obama_texture: &Rc<Texture>)
     let random_angle = between_angle.ind_sample(&mut rng);
     let random_velocity = Vector2::new(random_angle.cos()*2.0, random_angle.sin()*2.0);
 
+    let obama_texture = rng.choose(obama_textures).unwrap();
     let obama_sprite = Sprite::new(obama_texture.clone());
     let obama_transform = Transform { pos: obama_pos, angle: 0.0,
                                       scale: Vector2::new(0.5, 0.5) };
@@ -242,10 +243,10 @@ pub fn create_world(renderer: Renderer<'static>,
 {
     let mut world = World::<MySystems>::new();
 
-    let good_texture = Rc::new(load_texture(&game_renderer, String::from("data/good.png")));
+    let good_texture = Rc::new(load_texture(&game_renderer, "data/good.png"));
     let neutral_texture = Rc::new(
-        load_texture(&game_renderer, String::from("data/neutral.png")));
-    let bad_texture = Rc::new(load_texture(&game_renderer, String::from("data/bad.png")));
+        load_texture(&game_renderer, "data/neutral.png"));
+    let bad_texture = Rc::new(load_texture(&game_renderer, "data/bad.png"));
 
     let test_sprite = Sprite::new(good_texture);
     let test_sprite2 = Sprite::new(neutral_texture);
