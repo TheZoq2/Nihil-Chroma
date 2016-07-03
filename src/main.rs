@@ -14,6 +14,7 @@ mod player;
 mod rendering;
 mod components;
 mod input;
+mod collision;
 
 use std::rc::Rc;
 
