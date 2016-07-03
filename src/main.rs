@@ -102,7 +102,7 @@ pub fn main() {
     let game_surface = Surface::new(
         RESOLUTION.0, RESOLUTION.1, PixelFormatEnum::RGB888).unwrap();
     let mut game_renderer = Renderer::from_surface(game_surface).unwrap();
-    game_renderer.set_draw_color(Color::RGB(100, 150, 50));
+    game_renderer.set_draw_color(Color::RGB(200, 80, 50));
 
     let ball_textures = vec!{
         Rc::new(load_texture(&game_renderer, "data/good.png")),
