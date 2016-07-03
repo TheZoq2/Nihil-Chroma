@@ -8,6 +8,7 @@ use ecs::system::{EntityProcess};
 use nalgebra::{Vector2};
 
 use components::{MyServices, MyComponents};
+use constants::*;
 
 use player;
 
@@ -42,7 +43,7 @@ impl EntityProcess for InputSystem {
                 Event::KeyUp { keycode: Some(code), .. } => {
                     keys.push((code, false));
                 }
-                Event::MouseMotion{x: x, y: y, ..} => {
+                Event::MouseMotion{x, y, ..} => {
                     self.mouse_pos = Vector2::new(x as f32, y as f32);
                 }
                 _ => {}
@@ -86,7 +87,7 @@ impl EntityProcess for InputSystem {
                 data.velocity[e] += Vector2::new(-add_vel, 0.0);
             }
 
-            let pos_diff = self.mouse_pos / 2.0 - data.transform[e].pos;
+            let pos_diff = self.mouse_pos / UPSCALING as f32 - data.transform[e].pos;
 
             data.transform[e].angle = pos_diff.y.atan2(pos_diff.x) as f64;
         }
