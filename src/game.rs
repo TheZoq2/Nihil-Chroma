@@ -358,27 +358,35 @@ systems! {
     }
 }
 
-pub fn create_obama(world: &mut World<MySystems>, obama_texture: &Rc<Texture>)
+fn random_edge_position() -> Vector2<f32>
 {
     // Distance to corners going clockwise
     let c1 = RESOLUTION.0;
     let c2 = c1 + RESOLUTION.1;
     let c3 = c2 + RESOLUTION.0;
 
+    let mut rng = rand::thread_rng();
     let between_corners = Range::new(0, RESOLUTION.0*2 + RESOLUTION.1*2);
+    let rand_dist = between_corners.ind_sample(&mut rng);
+    let edge_offset = 50.0;
+
+    if rand_dist < c1 {
+        Vector2::new(rand_dist as f32, -edge_offset)
+    } else if rand_dist < c2 {
+        Vector2::new(RESOLUTION.0 as f32 + edge_offset, (rand_dist - c1) as f32)
+    } else if rand_dist < c3 {
+        Vector2::new(RESOLUTION.1 as f32 + edge_offset, (rand_dist - c2) as f32)
+    } else {
+        Vector2::new(edge_offset, (rand_dist - c3) as f32)
+    }
+}
+
+pub fn create_obama(world: &mut World<MySystems>, obama_texture: &Rc<Texture>)
+{
     let between_angle = Range::new(0.0f32, (2.0*consts::PI) as f32);
     let mut rng = rand::thread_rng();
 
-    let rand_dist = between_corners.ind_sample(&mut rng);
-    let obama_pos = if rand_dist < c1 {
-        Vector2::new(rand_dist as f32, 0.0)
-    } else if rand_dist < c2 {
-        Vector2::new(RESOLUTION.0 as f32, (rand_dist - c1) as f32)
-    } else if rand_dist < c3 {
-        Vector2::new(RESOLUTION.1 as f32, (rand_dist - c2) as f32)
-    } else {
-        Vector2::new(0.0, (rand_dist - c3) as f32)
-    };
+    let obama_pos = random_edge_position();
 
     let random_angle = between_angle.ind_sample(&mut rng);
     let random_velocity = Vector2::new(random_angle.cos()*2.0, random_angle.sin()*2.0);
