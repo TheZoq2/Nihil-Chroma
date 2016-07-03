@@ -69,7 +69,7 @@ impl BallSpawner
     {
         let mut rng = rand::thread_rng();
 
-        let respawn_comp = RespawnComponent{max_radius: 400.0, max_speed: 80.0, min_speed: 40.0};
+        let respawn_comp = RespawnComponent{max_radius: 400.0, max_speed: 120.0, min_speed: 70.0};
         let transform = Transform { pos: Vector2::new(600.0, 600.0), angle: 0.0,
                              scale: Vector2::new(0.25, 0.25) };
 

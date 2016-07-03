@@ -269,7 +269,7 @@ pub fn create_world(renderer: Renderer<'static>,
     let player_entity = world.create_entity(
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
             data.velocity.add(&entity, Vector2::new(0.0, 0.0));
-            data.max_velocity.add(&entity, 80.0);
+            data.max_velocity.add(&entity, 100.0);
             data.transform.add(&entity, player_transform);
             data.sprite.add(&entity, test_sprite);
             data.player_component.add(&entity, PlayerComponent::new());
