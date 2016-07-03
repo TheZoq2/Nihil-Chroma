@@ -55,6 +55,14 @@ pub struct StretchComponent
     pub original: Vector2<f32>,
 }
 
+pub struct OrbitComponent
+{
+    pub radius: f32,
+    pub target_radius: f32,
+    pub angular_velocity: f32,
+    pub angle: f32,
+}
+
 components! {
     struct MyComponents {
         #[hot] transform: Transform,
@@ -67,6 +75,7 @@ components! {
         #[cold] ball_type: BallType,
         #[cold] stretch: StretchComponent,
         #[cold] max_velocity: f32,
+        #[cold] orbit: OrbitComponent,
     }
 }
 
@@ -77,6 +86,8 @@ pub struct MyServices {
     pub hit_bad: bool,
     pub hit_neutral: bool,
     pub hit_good: bool,
+    pub nuke_angle: f32,
+    pub screenshake: Option<f32>,
 }
 
 impl ServiceManager for MyServices {
@@ -91,6 +102,8 @@ impl Default for MyServices {
             hit_bad: false,
             hit_neutral: false,
             hit_good: false,
+            nuke_angle: 0.,
+            screenshake: None,
         }
     }
 }

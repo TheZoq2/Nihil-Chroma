@@ -30,7 +30,7 @@ use sdl2::surface::Surface;
 use sdl2_ttf::Font;
 
 use nalgebra::Vector2;
-use ecs::{Entity, World};
+use ecs::{Entity, World, BuildData};
 
 use sprite::load_texture;
 use sprite::Sprite;
@@ -38,7 +38,7 @@ use sprite::Sprite;
 use constants::*;
 
 use game::{RespawnComponent, MySystems};
-use components::{MyComponents, Transform, BallType};
+use components::{MyComponents, Transform, BallType, OrbitComponent};
 
 struct BallSpawner
 {
@@ -114,7 +114,7 @@ fn create_text_entity<'a>(text: &'a str, font: &Font, world: &mut World<MySystem
     world.create_entity(
         |entity: ecs::BuildData<MyComponents>, data: &mut MyComponents| {
             data.transform.add(&entity, Transform {
-                pos: Vector2::new(40.0, 10.0),
+                pos: Vector2::new(140.0, 10.0),
                 angle: 0.0,
                 scale: Vector2::new(0.1, 0.1)
             });
@@ -151,6 +151,15 @@ pub fn main() {
 
     let mut ball_spawner = BallSpawner::new(ball_textures);
 
+    let sausage_texture = Rc::new(load_texture(&game_renderer, "data/sausage.png"));
+    let sausage_transform = Transform { pos: Vector2::new(100000000., RESOLUTION.1 as f32 / 2.0), angle: 0.0,
+                                 scale: Vector2::new(1.5, 1.5) };
+    let nuke_texture = Rc::new(load_texture(&game_renderer, "data/nuke.png"));
+    let nuke_transform = Transform { pos: Vector2::new(100000., RESOLUTION.1 as f32 / 2.0), angle: 0.0,
+                                 scale: Vector2::new(0.25, 0.25) };
+    let mut sausage_is_spawned = false;
+    let mut nuke_is_spawned = false;
+
 
     let obama_files = fs::read_dir("data/obamas").unwrap();
     let mut obama_textures = Vec::new();
@@ -169,6 +178,7 @@ pub fn main() {
 
     let mut world = game::create_world(renderer, game_renderer, event_pump);
     let mut points = 0;
+    let mut life = 3;
 
     let mut score_entity = create_text_entity("Score: 0", &font, &mut world);
 
@@ -176,6 +186,9 @@ pub fn main() {
     {
         ball_spawner.spawn_ball(&mut world);
     }
+
+
+    let start_time = time::precise_time_s() as f32;
 
     let mut old_time = 0.0;
     'running: loop {
@@ -196,13 +209,17 @@ pub fn main() {
         let new_points = world.services.new_points;
         points += new_points;
 
-        if new_points != 0 {
-            world.remove_entity(score_entity);
-            let score_string = "Score: ".to_string() + &points.to_string();
-            score_entity = create_text_entity(&score_string, &font, &mut world)
-        }
+        world.remove_entity(score_entity);
+        let score_string = "Score: ".to_string() + &points.to_string() + "  Life: " + &life.to_string() + " Sausage countdown: " + &((curr_time - start_time) as i32 - 180).to_string();
+        score_entity = create_text_entity(&score_string, &font, &mut world);
 
         if world.services.hit_bad
+        {
+            //println!("You died, final score: {}", points);
+            //return;
+            life -= 1;
+        }
+        if life < 0
         {
             println!("You died, final score: {}", points);
             return;
@@ -213,6 +230,50 @@ pub fn main() {
         if should_exit
         {
             return;
+        }
+
+        let nuke_time = 180.0;
+        let nuke_angle = world.services.nuke_angle;
+
+        if curr_time - start_time > nuke_time && sausage_is_spawned == false
+        {
+            sausage_is_spawned = true;
+
+            let sausage_sprite = Sprite::new(sausage_texture.clone());
+            world.create_entity(
+                |entity: BuildData<MyComponents>, data: &mut MyComponents | {
+                    data.transform.add(&entity, sausage_transform);
+                    data.orbit.add(&entity, OrbitComponent{radius: 1000., target_radius:150., angle:0., angular_velocity: 0.02});
+                    data.sprite.add(&entity, sausage_sprite);
+                }
+            );
+        }
+
+        if curr_time - start_time > nuke_time + 10.
+        {
+            world.services.screenshake = Some(10.);
+            if nuke_is_spawned == false
+            {
+                nuke_is_spawned = true;
+
+                for _ in 0..3
+                {
+                    let bound = components::BoundingCircle { radius: 28.0 * 0.5 };
+                    let ball_type = BallType::Bad;
+
+                    let nuke_sprite = Sprite::new(nuke_texture.clone());
+                    world.create_entity(
+                        |entity: BuildData<MyComponents>, data: &mut MyComponents | {
+                            data.transform.add(&entity, nuke_transform);
+                            data.orbit.add(&entity, OrbitComponent{radius: 250., target_radius:0., angle:nuke_angle, angular_velocity: 0.02});
+                            data.sprite.add(&entity, nuke_sprite);
+
+                            data.bounding_box.add(&entity, bound);
+                            data.ball_type.add(&entity, ball_type.clone());
+                        }
+                    );
+                }
+            }
         }
     }
 }

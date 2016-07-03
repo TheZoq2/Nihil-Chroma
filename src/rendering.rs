@@ -100,7 +100,7 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
 
         let mut rng = rand::thread_rng();
 
-        if data.services.hit_neutral == true
+        if data.services.hit_bad == true
         {
             self.shake_amount = 10.;
         }
@@ -118,6 +118,13 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
         else if self.shake_amount < 5.
         {
             self.shake_amount = 0.
+        }
+
+        //Add outside screenshake stimulation
+        match data.services.screenshake
+        {
+            Some(amount) => self.shake_amount = amount,
+            None => {}
         }
 
 

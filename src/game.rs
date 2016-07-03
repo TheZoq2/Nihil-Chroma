@@ -26,7 +26,8 @@ use player::{PlayerComponent};
 use rendering::{RenderingSystem};
 use input::InputSystem;
 use collision::CollisionSystem;
-use components::{MyServices, MyComponents, Transform, BoundingCircle, ObamaComponent, StretchComponent};
+use components::{MyServices, MyComponents, Transform, BoundingCircle, ObamaComponent, 
+                StretchComponent, OrbitComponent};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RespawnComponent
@@ -162,6 +163,52 @@ impl EntityProcess for RespawnSystem
     }
 }
 
+pub struct OrbitSystem
+{
+    pub player: ecs::Entity,
+}
+impl System for OrbitSystem {
+    type Components = MyComponents;
+    type Services = MyServices;
+}
+impl EntityProcess for OrbitSystem
+{
+    fn process(&mut self, entities: EntityIter<MyComponents>,
+               data: &mut DataHelper<MyComponents, MyServices>)
+    {
+        for e in entities {
+
+            data.orbit[e].angle += data.orbit[e].angular_velocity;
+
+            let target_orbit = data.orbit[e].target_radius;
+            let radius = data.orbit[e].radius;
+
+            let diff = radius - target_orbit;
+
+            data.orbit[e].radius -= diff * 0.003;
+
+
+            //Set the actual position around the player
+            //Getting some parameters about the player
+            let mut player_pos = Vector2::new(0.0, 0.0);
+            data.with_entity_data(&self.player, |entity, data|{
+                player_pos = data.transform[entity].pos;
+            });
+
+            let pos = player_pos + Vector2::new(
+                radius * data.orbit[e].angle.cos(),
+                radius * data.orbit[e].angle.sin(),
+            );
+
+            data.transform[e].pos = pos;
+            data.transform[e].angle = data.orbit[e].angle as f64 - consts::PI * 0.5; 
+
+            data.services.nuke_angle = data.orbit[e].angle;
+        }
+    }
+}
+
+
 
 systems! {
     // struct MySystems<MyComponents, MyServices>;
@@ -186,6 +233,7 @@ systems! {
                 ObamaSystem,
                 aspect!(<MyComponents> all: [obama, transform])
             ),
+            orbit: LazySystem<EntitySystem<OrbitSystem>> = LazySystem::new(),
         },
         passive: {}
     }
@@ -242,6 +290,8 @@ pub fn create_obama(world: &mut World<MySystems>, obama_textures: &Vec<Rc<Textur
 }
 
 
+
+
 pub fn create_world(renderer: Renderer<'static>,
                     game_renderer: Renderer<'static>,
                     event_pump: EventPump) -> World<MySystems>
@@ -251,11 +301,12 @@ pub fn create_world(renderer: Renderer<'static>,
     let good_texture = Rc::new(load_texture(&game_renderer, "data/good.png"));
     let test_sprite = Sprite::new(good_texture);
     let sprite_scale = 0.25;
-
     let player_transform = Transform { pos: Vector2::new(RESOLUTION.0 as f32 / 2., RESOLUTION.1 as f32 / 2.0), angle: 0.0,
                                  scale: Vector2::new(sprite_scale, sprite_scale) };
 
     let player_box = BoundingCircle { radius: 56.0 * sprite_scale };
+
+
 
     // Create some entites with some components
     let player_entity = world.create_entity(
@@ -287,6 +338,11 @@ pub fn create_world(renderer: Renderer<'static>,
     world.systems.collision.init(EntitySystem::new(
         CollisionSystem {player: player_entity},
         aspect!(<MyComponents> all: [transform, bounding_box, ball_type] none: [player_component])
+    ));
+
+    world.systems.orbit.init(EntitySystem::new(
+        OrbitSystem{player: player_entity},
+        aspect!(<MyComponents> all: [transform, orbit])
     ));
 
     return world;
