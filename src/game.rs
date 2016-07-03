@@ -42,7 +42,10 @@ pub struct BoundingBox {
     size: Vector2<f32>,
 }
 
-pub struct MotionSystem;
+pub struct MotionSystem
+{
+    pub frametime: f32, 
+}
 
 impl System for MotionSystem {
     type Components = MyComponents;
@@ -55,7 +58,7 @@ impl EntityProcess for MotionSystem {
     {
         for e in entities {
             let velocity = data.velocity[e];
-            data.transform[e].pos += velocity;
+            data.transform[e].pos += velocity * self.frametime;
         }
     }
 }
@@ -168,7 +171,7 @@ systems! {
             input: LazySystem<EntitySystem<InputSystem>> = LazySystem::new(),
             collision: LazySystem<EntitySystem<CollisionSystem>> = LazySystem::new(),
             motion: EntitySystem<MotionSystem> = EntitySystem::new(
-                MotionSystem,
+                MotionSystem{frametime: 1.0},
                 aspect!(<MyComponents> all: [transform, velocity])
             ),
             max_vel: EntitySystem<MaxVelSystem> = EntitySystem::new(
@@ -252,14 +255,12 @@ pub fn create_world(renderer: Renderer<'static>,
     let test_sprite2 = Sprite::new(neutral_texture);
     let test_sprite3 = Sprite::new(bad_texture);
 
-    let player_transform = Transform { pos: Vector2::new(0.0, 0.0), angle: 0.0,
-                                 scale: Vector2::new(0.5, 0.5) };
-    let transform2 = Transform { pos: Vector2::new(600.0, 600.0), angle: 0.0,
-                                 scale: Vector2::new(0.5, 0.5) };
-    let transform3 = Transform { pos: Vector2::new(600.0, 600.0), angle: 0.0,
-                                 scale: Vector2::new(0.5, 0.5) };
+    let sprite_scale = 0.25;
 
-    let player_box = BoundingCircle { radius: 28.0 };
+    let player_transform = Transform { pos: Vector2::new(RESOLUTION.0 as f32, RESOLUTION.1 as f32), angle: 0.0,
+                                 scale: Vector2::new(sprite_scale, sprite_scale) };
+
+    let player_box = BoundingCircle { radius: 56.0 * sprite_scale };
 
     let respawn_comp = RespawnComponent{max_radius: 400.0, max_speed: 4.0, min_speed: 2.0};
 
@@ -268,7 +269,7 @@ pub fn create_world(renderer: Renderer<'static>,
     let player_entity = world.create_entity(
         |entity: BuildData<MyComponents>, data: &mut MyComponents| {
             data.velocity.add(&entity, Vector2::new(0.0, 0.0));
-            data.max_velocity.add(&entity, 4.0);
+            data.max_velocity.add(&entity, 80.0);
             data.transform.add(&entity, player_transform);
             data.sprite.add(&entity, test_sprite);
             data.player_component.add(&entity, PlayerComponent::new());
@@ -276,23 +277,6 @@ pub fn create_world(renderer: Renderer<'static>,
         }
     );
 
-    world.create_entity(
-        |entity: BuildData<MyComponents>, data: &mut MyComponents| {
-            data.transform.add(&entity, transform2);
-            data.sprite.add(&entity, test_sprite2);
-            data.bounding_box.add(&entity, player_box);
-        }
-    );
-
-    world.create_entity(
-        |entity: BuildData<MyComponents>, data: &mut MyComponents| {
-            data.transform.add(&entity, transform3);
-            data.velocity.add(&entity, Vector2::new(0.0, 0.0));
-            data.sprite.add(&entity, test_sprite3);
-            data.respawn_component.add(&entity, respawn_comp.clone());
-            data.bounding_box.add(&entity, player_box);
-        }
-    );
 
     let renderref = RefCell::new(renderer);
     let game_renderref = RefCell::new(game_renderer);

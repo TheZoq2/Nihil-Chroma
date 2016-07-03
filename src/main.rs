@@ -61,11 +61,11 @@ impl BallSpawner
 
         if curr_time > self.last_spawn + self.spawn_time
         {
-            let respawn_comp = RespawnComponent{max_radius: 400.0, max_speed: 4.0, min_speed: 2.0};
+            let respawn_comp = RespawnComponent{max_radius: 400.0, max_speed: 80.0, min_speed: 40.0};
             let transform = Transform { pos: Vector2::new(600.0, 600.0), angle: 0.0,
-                                 scale: Vector2::new(0.5, 0.5) };
+                                 scale: Vector2::new(0.25, 0.25) };
 
-            let bound = components::BoundingCircle { radius: 28.0 };
+            let bound = components::BoundingCircle { radius: 28.0 * 0.5 };
 
             //TODO: This could cause a crash depending on what the .clone method does
             let sprite = sprite::Sprite::new(self.textures[rng.gen_range(0, self.textures.len())].clone());
@@ -127,7 +127,12 @@ pub fn main() {
 
     let mut world = game::create_world(renderer, game_renderer, event_pump);
 
+    let mut old_time = 0.0;
     'running: loop {
+        let curr_time = time::precise_time_s() as f32;
+        let frametime = curr_time - old_time;
+        old_time = curr_time;
+        world.systems.motion.inner.frametime = frametime;
 
         world.update();
 

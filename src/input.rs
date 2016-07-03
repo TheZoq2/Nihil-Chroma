@@ -68,7 +68,7 @@ impl EntityProcess for InputSystem {
                 };
             }
 
-            let add_vel = 0.3;
+            let add_vel = 15.;
             //All keys have been handled, let's use them
             if data.player_component[e].get_key(player::Keys::Up)
             {
