@@ -23,10 +23,10 @@ use sdl2::EventPump;
 
 use player::{PlayerComponent};
 
-use rendering::RenderingSystem;
+use rendering::{RenderingSystem, StretchSystem};
 use input::InputSystem;
 use collision::CollisionSystem;
-use components::{MyServices, MyComponents, Transform, BoundingCircle, ObamaComponent};
+use components::{MyServices, MyComponents, Transform, BoundingCircle, ObamaComponent, StretchComponent};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RespawnComponent
@@ -185,6 +185,10 @@ systems! {
             obama: EntitySystem<ObamaSystem> = EntitySystem::new(
                 ObamaSystem,
                 aspect!(<MyComponents> all: [obama, transform])
+            ),
+            stretch: EntitySystem<StretchSystem> = EntitySystem::new(
+                StretchSystem,
+                aspect!(<MyComponents> all: [stretch, transform, velocity])
             ),
         },
         passive: {}

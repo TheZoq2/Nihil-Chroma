@@ -136,7 +136,7 @@ pub fn main() {
     let mut world = game::create_world(renderer, game_renderer, event_pump);
     let mut points = 0;
 
-    for i in 0..20
+    for _ in 0..20
     {
         ball_spawner.spawn_ball(&mut world);
     }

@@ -49,17 +49,24 @@ impl Default for BoundingCircle {
     }
 }
 
+pub struct StretchComponent
+{
+    pub amount: f32,
+    pub original: Vector2<f32>,
+}
+
 components! {
     struct MyComponents {
         #[hot] transform: Transform,
         #[hot] velocity: Vector2<f32>,
-        #[hot] max_velocity: f32,
         #[hot] sprite: Sprite,
         #[hot] bounding_box: BoundingCircle,
         #[cold] player_component: PlayerComponent,
         #[cold] obama: ObamaComponent,
         #[cold] respawn_component: RespawnComponent,
         #[cold] ball_type: BallType,
+        #[cold] stretch: StretchComponent,
+        #[cold] max_velocity: f32,
     }
 }
 
