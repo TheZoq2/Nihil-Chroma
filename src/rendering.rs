@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use ecs::{System, DataHelper, EntityIter};
 use ecs::system::{EntityProcess};
 use components::{MyServices, MyComponents};
-use nalgebra::Vector2;
+use nalgebra::{Vector2, Norm};
 
 use constants::*;
 
@@ -125,4 +125,29 @@ fn is_in_cone(center: Vector2<f32>, x: u32, y: u32, angle: f64) -> bool
         return true;
     }
     false
+}
+
+
+//This doesn't work :/
+pub struct StretchSystem;
+
+impl System for StretchSystem{
+    type Components = MyComponents;
+    type Services = MyServices;
+}
+impl EntityProcess for StretchSystem
+{
+    fn process(&mut self, entities: EntityIter<MyComponents>,
+                       data: &mut DataHelper<MyComponents, MyServices>)
+    {
+        for e in entities
+        {
+            let stretch_amount = data.stretch[e].amount * (data.velocity[e].norm());
+            let original_scale = data.stretch[e].original;
+
+            data.transform[e].scale = Vector2::new(
+                original_scale.x * (1. + stretch_amount), 
+                original_scale.y / (1. + stretch_amount));
+        }
+    }
 }

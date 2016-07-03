@@ -16,7 +16,7 @@ pub struct InputSystem {
     pub event_pump: EventPump,
     pub mouse_pos: Vector2<f32>,
 
-    pub should_exit: bool,
+    pub should_exit: bool
 }
 
 impl System for InputSystem {
