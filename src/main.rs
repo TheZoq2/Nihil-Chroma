@@ -5,6 +5,7 @@ extern crate sdl2_ttf;
 extern crate nalgebra;
 extern crate rand;
 extern crate time;
+extern crate sfml;
 
 #[macro_use]
 extern crate ecs;
@@ -39,6 +40,8 @@ use constants::*;
 
 use game::{RespawnComponent, MySystems};
 use components::{MyComponents, Transform, BallType, OrbitComponent};
+
+use sfml::audio::{Music};
 
 struct BallSpawner
 {
@@ -189,6 +192,9 @@ pub fn main() {
 
 
     let start_time = time::precise_time_s() as f32;
+    let mut music = Music::new_from_file("data/music.ogg").unwrap();
+    music.set_loop(true);
+    music.play();
 
     let mut old_time = 0.0;
     'running: loop {
