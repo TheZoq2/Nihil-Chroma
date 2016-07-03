@@ -13,6 +13,7 @@ use player;
 
 pub struct InputSystem {
     pub event_pump: EventPump,
+    pub mouse_pos: Vector2<f32>,
 
     pub should_exit: bool,
 }
@@ -29,8 +30,6 @@ impl EntityProcess for InputSystem {
         //Run the event loop and store all the keycodes that were pressed
         let mut keys = Vec::<(Keycode, bool)>::new();
 
-        let mut mouse_pos = None;
-
         for event in self.event_pump.poll_iter() {
             match event {
                 Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
@@ -43,8 +42,8 @@ impl EntityProcess for InputSystem {
                 Event::KeyUp { keycode: Some(code), .. } => {
                     keys.push((code, false));
                 }
-                Event::MouseMotion{x, y, ..} => {
-                    mouse_pos = Some(Vector2::new(x as f32, y as f32));
+                Event::MouseMotion{x: x, y: y, ..} => {
+                    self.mouse_pos = Vector2::new(x as f32, y as f32);
                 }
                 _ => {}
             }
@@ -52,7 +51,7 @@ impl EntityProcess for InputSystem {
 
         for e in entities
         {
-            for key in &keys
+            for key in &keys 
             {
                 let keycode: Option<player::Keys> = match key.0{
                     Keycode::W => Some(player::Keys::Up),
@@ -68,33 +67,28 @@ impl EntityProcess for InputSystem {
                 };
             }
 
+            let add_vel = 0.3;
             //All keys have been handled, let's use them
             if data.player_component[e].get_key(player::Keys::Up)
             {
-                data.transform[e].pos += Vector2::new(0.0, -1.0);
+                data.velocity[e] += Vector2::new(0.0, -add_vel);
             }
             if data.player_component[e].get_key(player::Keys::Down)
             {
-                data.transform[e].pos += Vector2::new(0.0, 1.0);
+                data.velocity[e] += Vector2::new(0.0, add_vel);
             }
             if data.player_component[e].get_key(player::Keys::Right)
             {
-                data.transform[e].pos += Vector2::new(1.0, 0.0);
+                data.velocity[e] += Vector2::new(add_vel, 0.0);
             }
             if data.player_component[e].get_key(player::Keys::Left)
             {
-                data.transform[e].pos += Vector2::new(-1.0, 0.0);
+                data.velocity[e] += Vector2::new(-add_vel, 0.0);
             }
 
-            match mouse_pos
-            {
-                Some(pos) => {
-                    let pos_diff = pos / 2.0 - data.transform[e].pos;
+            let pos_diff = self.mouse_pos / 2.0 - data.transform[e].pos;
 
-                    data.transform[e].angle = pos_diff.y.atan2(pos_diff.x) as f64;
-                },
-                None => {}
-            }
+            data.transform[e].angle = pos_diff.y.atan2(pos_diff.x) as f64;
         }
     }
 }
