@@ -44,7 +44,7 @@ pub struct BoundingBox {
 
 pub struct MotionSystem
 {
-    pub frametime: f32, 
+    pub frametime: f32,
 }
 
 impl System for MotionSystem {
@@ -208,9 +208,9 @@ fn random_edge_position() -> Vector2<f32>
     } else if rand_dist < c2 {
         Vector2::new(RESOLUTION.0 as f32 + edge_offset, (rand_dist - c1) as f32)
     } else if rand_dist < c3 {
-        Vector2::new(RESOLUTION.1 as f32 + edge_offset, (rand_dist - c2) as f32)
+        Vector2::new((rand_dist - c2) as f32, RESOLUTION.1 as f32 + edge_offset)
     } else {
-        Vector2::new(edge_offset, (rand_dist - c3) as f32)
+        Vector2::new(-edge_offset, (rand_dist - c3) as f32)
     }
 }
 
@@ -220,9 +220,11 @@ pub fn create_obama(world: &mut World<MySystems>, obama_textures: &Vec<Rc<Textur
     let mut rng = rand::thread_rng();
 
     let obama_pos = random_edge_position();
+    let obama_speed = 20.0;
 
     let random_angle = between_angle.ind_sample(&mut rng);
-    let random_velocity = Vector2::new(random_angle.cos()*2.0, random_angle.sin()*2.0);
+    let random_velocity = Vector2::new(random_angle.cos()*obama_speed,
+                                       random_angle.sin()*obama_speed);
 
     let obama_texture = rng.choose(obama_textures).unwrap();
     let obama_sprite = Sprite::new(obama_texture.clone());
