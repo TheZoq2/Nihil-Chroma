@@ -33,6 +33,7 @@ pub struct RespawnComponent
 {
     max_radius: f32,
     max_speed: f32,
+    min_speed: f32,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -128,24 +129,30 @@ impl EntityProcess for RespawnSystem
     fn process(&mut self, entities: EntityIter<MyComponents>,
                data: &mut DataHelper<MyComponents, MyServices>)
     {
-        let center = Vector2::new(RESOLUTION.0, RESOLUTION.1);
+        let center = Vector2::new((RESOLUTION.0 / 2) as f32, (RESOLUTION.1 / 2) as f32);
         let mut rng = rand::thread_rng();
 
         for e in entities
         {
-            let diff = Vector2::new(data.transform[e].pos.x - center.x as f32, data.transform[e].pos.y - center.y as f32);
+            //let diff = Vector2::new(data.transform[e].pos.x - center.x as f32, data.transform[e].pos.y - center.y as f32);
+            let diff = data.transform[e].pos - center;
 
-            if diff.x.powi(2) + diff.x.powi(2) >  data.respawn_component[e].max_radius.powi(2)
+
+            if diff.x.powi(2) + diff.y.powi(2) > data.respawn_component[e].max_radius.powi(2)
             {
                 //select a random position
                 let angle = rng.gen_range(0., consts::PI*2.) as f32;
 
-                data.transform[e].pos = Vector2::new((data.respawn_component[e].max_radius - 1.) * angle.cos(),
-                                                     (data.respawn_component[e].max_radius - 1.) * angle.sin());
+                data.transform[e].pos = Vector2::new((data.respawn_component[e].max_radius) * angle.cos(),
+                                                     (data.respawn_component[e].max_radius) * angle.sin()) +
+                        center;
+
+                let min_speed = data.respawn_component[e].min_speed;
+                let max_speed = data.respawn_component[e].max_speed;
 
                 //select a random direction
                 let angle = rng.gen_range(0., consts::PI*2.) as f32;
-                let speed = rng.gen_range(0., data.respawn_component[e].max_speed);
+                let speed = min_speed + rng.gen_range(0., max_speed - min_speed);
                 data.velocity[e] = Vector2::new(speed * angle.cos(), speed * angle.sin());
             }
         }
@@ -246,14 +253,14 @@ pub fn create_world(renderer: Renderer<'static>,
 
     let player_transform = Transform { pos: Vector2::new(0.0, 0.0), angle: 0.0,
                                  scale: Vector2::new(0.5, 0.5) };
-    let transform2 = Transform { pos: Vector2::new(150.0, 150.0), angle: 0.0,
+    let transform2 = Transform { pos: Vector2::new(600.0, 600.0), angle: 0.0,
                                  scale: Vector2::new(0.5, 0.5) };
-    let transform3 = Transform { pos: Vector2::new(150.0, 300.0), angle: 0.0,
+    let transform3 = Transform { pos: Vector2::new(600.0, 600.0), angle: 0.0,
                                  scale: Vector2::new(0.5, 0.5) };
 
     let player_box = BoundingCircle { radius: 28.0 };
 
-    let respawn_comp = RespawnComponent{max_radius: 150.0, max_speed: 1.0};
+    let respawn_comp = RespawnComponent{max_radius: 400.0, max_speed: 4.0, min_speed: 2.0};
 
 
     // Create some entites with some components
