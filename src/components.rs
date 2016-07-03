@@ -75,6 +75,8 @@ pub struct MyServices {
     pub too_few_obamas: bool,
     pub new_points: u32,
     pub hit_bad: bool,
+    pub hit_neutral: bool,
+    pub hit_good: bool,
 }
 
 impl ServiceManager for MyServices {
@@ -87,6 +89,8 @@ impl Default for MyServices {
             too_few_obamas: false,
             new_points: 0,
             hit_bad: false,
+            hit_neutral: false,
+            hit_good: false,
         }
     }
 }

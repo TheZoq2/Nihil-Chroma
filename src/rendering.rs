@@ -1,13 +1,16 @@
 extern crate ecs;
+extern crate rand;
 
+use rand::Rng;
 use sdl2::render::{Renderer};
 use sdl2::pixels::PixelFormatEnum;
+use sdl2::rect::Rect;
 use std::f64::consts;
 use std::cell::RefCell;
 use ecs::{System, DataHelper, EntityIter};
 use ecs::system::{EntityProcess};
 use components::{MyServices, MyComponents};
-use nalgebra::{Vector2, Norm};
+use nalgebra::{Vector2};
 
 use constants::*;
 
@@ -15,6 +18,7 @@ pub struct RenderingSystem<'a> {
     pub renderer: RefCell<Renderer<'a>>,
     pub game_renderer: RefCell<Renderer<'a>>,
     pub player: ecs::Entity,
+    pub shake_amount: f32,
 }
 
 impl<'a> System for RenderingSystem<'a> {
@@ -90,12 +94,40 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
                 }
             }
         }).unwrap();
+        
+        //Screenshake
+        let mut offset = Vector2::new(0, 0);
 
-        //we don't need to clear the screen here because we will fill the screen with the new
-        //texture anyway
+        let mut rng = rand::thread_rng();
+
+        if data.services.hit_neutral == true
+        {
+            self.shake_amount = 10.;
+        }
+
+
+        if self.shake_amount > 0.
+        {
+            offset = Vector2::new(
+                rng.gen_range(-self.shake_amount, self.shake_amount) as i32,
+                rng.gen_range(-self.shake_amount, self.shake_amount) as i32
+            );
+
+            self.shake_amount = self.shake_amount - 0.2;
+        }
+        else if self.shake_amount < 5.
+        {
+            self.shake_amount = 0.
+        }
+
+
+        let size = renderer.output_size().unwrap();
+        let screen_rect = Rect::new(offset.x, offset.y, size.0 as u32, size.1 as u32);
+
+
 
         //Render the new texture on the screen
-        renderer.copy(&game_texture, None, None);
+        renderer.copy(&game_texture, Some(screen_rect), None);
 
         renderer.present();
     }
@@ -128,26 +160,3 @@ fn is_in_cone(center: Vector2<f32>, x: u32, y: u32, angle: f64) -> bool
 }
 
 
-//This doesn't work :/
-pub struct StretchSystem;
-
-impl System for StretchSystem{
-    type Components = MyComponents;
-    type Services = MyServices;
-}
-impl EntityProcess for StretchSystem
-{
-    fn process(&mut self, entities: EntityIter<MyComponents>,
-                       data: &mut DataHelper<MyComponents, MyServices>)
-    {
-        for e in entities
-        {
-            let stretch_amount = data.stretch[e].amount * (data.velocity[e].norm());
-            let original_scale = data.stretch[e].original;
-
-            data.transform[e].scale = Vector2::new(
-                original_scale.x * (1. + stretch_amount), 
-                original_scale.y / (1. + stretch_amount));
-        }
-    }
-}

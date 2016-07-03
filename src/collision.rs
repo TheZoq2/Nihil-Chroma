@@ -30,6 +30,10 @@ impl EntityProcess for CollisionSystem {
     fn process(&mut self, entities: EntityIter<MyComponents>,
                data: &mut DataHelper<MyComponents, MyServices>)
     {
+        data.services.hit_bad = false;
+        data.services.hit_neutral = false;
+        data.services.hit_good = false;
+
         data.services.new_points = 0;
 
         let mut player_transform: Transform = Default::default();
@@ -49,8 +53,8 @@ impl EntityProcess for CollisionSystem {
 
                 match data.ball_type[e]
                 {
-                    BallType::Good => data.services.new_points += 1,
-                    BallType::Neutral => {},
+                    BallType::Good => {data.services.new_points += 1; data.services.hit_good = true},
+                    BallType::Neutral => data.services.hit_neutral = true,
                     BallType::Bad => data.services.hit_bad = true,
                 }
             }

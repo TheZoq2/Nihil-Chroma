@@ -23,7 +23,7 @@ use sdl2::EventPump;
 
 use player::{PlayerComponent};
 
-use rendering::{RenderingSystem, StretchSystem};
+use rendering::{RenderingSystem};
 use input::InputSystem;
 use collision::CollisionSystem;
 use components::{MyServices, MyComponents, Transform, BoundingCircle, ObamaComponent, StretchComponent};
@@ -186,10 +186,6 @@ systems! {
                 ObamaSystem,
                 aspect!(<MyComponents> all: [obama, transform])
             ),
-            stretch: EntitySystem<StretchSystem> = EntitySystem::new(
-                StretchSystem,
-                aspect!(<MyComponents> all: [stretch, transform, velocity])
-            ),
         },
         passive: {}
     }
@@ -279,7 +275,7 @@ pub fn create_world(renderer: Renderer<'static>,
 
     world.systems.rendering.init(EntitySystem::new(
         RenderingSystem {renderer: renderref, game_renderer: game_renderref,
-                         player: player_entity},
+                         player: player_entity, shake_amount: 5.0},
         aspect!(<MyComponents> all: [transform, sprite])
     ));
 
