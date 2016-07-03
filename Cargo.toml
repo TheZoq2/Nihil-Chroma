@@ -10,6 +10,7 @@ image = "*"
 nalgebra = "*"
 ecs = "*"
 time = "*"
+sfml = "*"
 
 [dependencies.sdl2_ttf]
 git = "https://github.com/andelf/rust-sdl2_ttf"
