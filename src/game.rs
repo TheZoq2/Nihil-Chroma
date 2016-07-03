@@ -96,18 +96,18 @@ pub struct MaxVelSystem;
 
 impl System for MaxVelSystem {
     type Components = MyComponents;
-    type Services = ();
+    type Services = MyServices;
 }
 
 impl EntityProcess for MaxVelSystem
 {
     fn process(&mut self, entities: EntityIter<MyComponents>,
-               data: &mut DataHelper<MyComponents, ()>)
+               data: &mut DataHelper<MyComponents, MyServices>)
     {
         for e in entities {
             let velocity = data.velocity[e];
             let max_vel = data.max_velocity[e];
-            
+
             if velocity.x * velocity.x + velocity.y * velocity.y > max_vel * max_vel
             {
                 data.velocity[e] = velocity.normalize() * max_vel;
@@ -120,18 +120,18 @@ pub struct RespawnSystem;
 
 impl System for RespawnSystem {
     type Components = MyComponents;
-    type Services = ();
+    type Services = MyServices;
 }
 
 impl EntityProcess for RespawnSystem
 {
     fn process(&mut self, entities: EntityIter<MyComponents>,
-               data: &mut DataHelper<MyComponents, ()>)
+               data: &mut DataHelper<MyComponents, MyServices>)
     {
         let center = Vector2::new(RESOLUTION.0, RESOLUTION.1);
         let mut rng = rand::thread_rng();
 
-        for e in entities 
+        for e in entities
         {
             let diff = Vector2::new(data.transform[e].pos.x - center.x as f32, data.transform[e].pos.y - center.y as f32);
 
@@ -140,7 +140,7 @@ impl EntityProcess for RespawnSystem
                 //select a random position
                 let angle = rng.gen_range(0., consts::PI*2.) as f32;
 
-                data.transform[e].pos = Vector2::new((data.respawn_component[e].max_radius - 1.) * angle.cos(), 
+                data.transform[e].pos = Vector2::new((data.respawn_component[e].max_radius - 1.) * angle.cos(),
                                                      (data.respawn_component[e].max_radius - 1.) * angle.sin());
 
                 //select a random direction
@@ -165,7 +165,7 @@ systems! {
                 aspect!(<MyComponents> all: [transform, velocity])
             ),
             max_vel: EntitySystem<MaxVelSystem> = EntitySystem::new(
-                MaxVelSystem{}, 
+                MaxVelSystem{},
                 aspect!(<MyComponents> all: [velocity, max_velocity])
             ),
             respawn: EntitySystem<RespawnSystem> = EntitySystem::new(
