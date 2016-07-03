@@ -31,9 +31,9 @@ use components::{MyServices, MyComponents, Transform, BoundingCircle, ObamaCompo
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RespawnComponent
 {
-    max_radius: f32,
-    max_speed: f32,
-    min_speed: f32,
+    pub max_radius: f32,
+    pub max_speed: f32,
+    pub min_speed: f32,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
