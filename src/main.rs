@@ -13,6 +13,7 @@ mod constants;
 mod player;
 mod rendering;
 mod components;
+mod input;
 
 use std::rc::Rc;
 
