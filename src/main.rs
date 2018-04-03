@@ -23,6 +23,7 @@ use rand::Rng;
 
 use std::fs;
 use std::rc::Rc;
+use std::cell::RefCell;
 use std::path::Path;
 
 use sdl2::pixels::{Color, PixelFormatEnum};
@@ -100,18 +101,18 @@ impl BallSpawner
     }
 }
 
-fn create_text_texture<'a>(text: &'a str, font: &Font, world: &mut World<MySystems>) -> Texture
+fn create_text_texture<'a>(text: &'a str, font: &Font, renderer: &mut Renderer) -> Texture
 {
     // render a surface, and convert it to a texture bound to the renderer
     let surface = font.render(text)
         .blended(Color::RGBA(255, 255, 255, 255)).unwrap();
-    let renderer = world.systems.rendering.inner.as_ref().unwrap().game_renderer.borrow_mut();
     renderer.create_texture_from_surface(&surface).unwrap()
 }
 
-fn create_text_entity<'a>(text: &'a str, font: &Font, world: &mut World<MySystems>) -> Entity
+fn create_text_entity<'a>(text: &'a str, font: &Font, world: &mut World<MySystems>,
+                          renderer: &mut Renderer) -> Entity
 {
-    let texture = create_text_texture(text, font, world);
+    let texture = create_text_texture(text, font, renderer);
 
     // Create text entity
     world.create_entity(
@@ -179,11 +180,14 @@ pub fn main() {
 
     let event_pump = sdl_context.event_pump().unwrap();
 
-    let mut world = game::create_world(renderer, game_renderer, event_pump);
+    let renderer_rc = Rc::new(RefCell::new(renderer));
+    let game_renderer_rc = Rc::new(RefCell::new(game_renderer));
+
+    let mut world = game::create_world(renderer_rc, game_renderer_rc, event_pump);
     let mut points = 0;
     let mut life = 3;
 
-    let mut score_entity = create_text_entity("Score: 0", &font, &mut world);
+    let mut score_entity = create_text_entity("Score: 0", &font, &mut world, &mut renderer);
 
     for _ in 0..20
     {
@@ -217,7 +221,7 @@ pub fn main() {
 
         world.remove_entity(score_entity);
         let score_string = "Score: ".to_string() + &points.to_string() + "  Life: " + &life.to_string() + " Sausage countdown: " + &((curr_time - start_time) as i32 - 180).to_string();
-        score_entity = create_text_entity(&score_string, &font, &mut world);
+        score_entity = create_text_entity(&score_string, &font, &mut world, &mut renderer);
 
         if world.services.hit_bad
         {

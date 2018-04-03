@@ -6,6 +6,7 @@ use sdl2::render::{Renderer};
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use std::f64::consts;
+use std::rc::Rc;
 use std::cell::RefCell;
 use ecs::{System, DataHelper, EntityIter};
 use ecs::system::{EntityProcess};
@@ -15,8 +16,8 @@ use nalgebra::{Vector2};
 use constants::*;
 
 pub struct RenderingSystem<'a> {
-    pub renderer: RefCell<Renderer<'a>>,
-    pub game_renderer: RefCell<Renderer<'a>>,
+    renderer: Rc<RefCell<Renderer<'a>>>,
+    game_renderer: Rc<RefCell<Renderer<'a>>>,
     pub player: ecs::Entity,
     pub shake_amount: f32,
 }
@@ -94,7 +95,7 @@ impl<'a> EntityProcess for RenderingSystem<'a> {
                 }
             }
         }).unwrap();
-        
+
         //Screenshake
         let mut offset = Vector2::new(0, 0);
 
@@ -165,5 +166,3 @@ fn is_in_cone(center: Vector2<f32>, x: u32, y: u32, angle: f64) -> bool
     }
     false
 }
-
-

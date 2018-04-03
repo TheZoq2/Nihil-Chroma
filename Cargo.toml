@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["TheZoq2 <frans.skarman@gmail.com>"]
 
 [dependencies]
-sdl2 = "0.20"
+sdl2 = "0.25"
 rand = "*"
 image = "*"
 nalgebra = "*"

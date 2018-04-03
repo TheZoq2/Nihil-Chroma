@@ -26,7 +26,7 @@ use player::{PlayerComponent};
 use rendering::{RenderingSystem};
 use input::InputSystem;
 use collision::CollisionSystem;
-use components::{MyServices, MyComponents, Transform, BoundingCircle, ObamaComponent, 
+use components::{MyServices, MyComponents, Transform, BoundingCircle, ObamaComponent,
                 StretchComponent, OrbitComponent};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -201,7 +201,7 @@ impl EntityProcess for OrbitSystem
             );
 
             data.transform[e].pos = pos;
-            data.transform[e].angle = data.orbit[e].angle as f64 - consts::PI * 0.5; 
+            data.transform[e].angle = data.orbit[e].angle as f64 - consts::PI * 0.5;
 
             data.services.nuke_angle = data.orbit[e].angle;
         }
@@ -292,17 +292,19 @@ pub fn create_obama(world: &mut World<MySystems>, obama_textures: &Vec<Rc<Textur
 
 
 
-pub fn create_world(renderer: Renderer<'static>,
-                    game_renderer: Renderer<'static>,
-                    event_pump: EventPump) -> World<MySystems>
+pub fn create_world<'a, 'b>(renderer: Rc<RefCell<Renderer<'a>>>,
+                        game_renderer: Rc<RefCell<Renderer<'b>>>,
+                        event_pump: EventPump) -> World<'a, 'b, MySystems>
 {
     let mut world = World::<MySystems>::new();
 
-    let good_texture = Rc::new(load_texture(&game_renderer, "data/good.png"));
+    let good_texture = Rc::new(load_texture(&*game_renderer.borrow_mut(), "data/good.png"));
     let test_sprite = Sprite::new(good_texture);
     let sprite_scale = 0.25;
-    let player_transform = Transform { pos: Vector2::new(RESOLUTION.0 as f32 / 2., RESOLUTION.1 as f32 / 2.0), angle: 0.0,
-                                 scale: Vector2::new(sprite_scale, sprite_scale) };
+    let player_transform = Transform { pos: Vector2::new(RESOLUTION.0 as f32 / 2.,
+                                                         RESOLUTION.1 as f32 / 2.0),
+                                       angle: 0.0,
+                                       scale: Vector2::new(sprite_scale, sprite_scale) };
 
     let player_box = BoundingCircle { radius: 56.0 * sprite_scale };
 
@@ -321,11 +323,8 @@ pub fn create_world(renderer: Renderer<'static>,
     );
 
 
-    let renderref = RefCell::new(renderer);
-    let game_renderref = RefCell::new(game_renderer);
-
     world.systems.rendering.init(EntitySystem::new(
-        RenderingSystem {renderer: renderref, game_renderer: game_renderref,
+        RenderingSystem {renderer: renderer.clone(), game_renderer: game_renderer.clone(),
                          player: player_entity, shake_amount: 5.0},
         aspect!(<MyComponents> all: [transform, sprite])
     ));
