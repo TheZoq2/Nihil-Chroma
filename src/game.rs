@@ -1,35 +1,23 @@
-extern crate ecs;
+extern crate specs;
 extern crate nalgebra as na;
 extern crate rand;
 
-use sdl2::render::{Renderer, Texture};
-use std::rc::Rc;
-use std::cell::RefCell;
 use std::f64::consts;
 use rand::Rng;
 
 use nalgebra::{Vector2, Norm};
-use std::ops::Deref;
 
 use rand::distributions::{IndependentSample, Range};
 
-use ecs::{World, BuildData, System, DataHelper, EntityIter};
-use ecs::system::{EntityProcess, EntitySystem, LazySystem};
+use specs::{Join, VecStorage};
 
-use sprite::{Sprite, load_texture};
+use sprite::Sprite;
 use constants::*;
 
-use sdl2::EventPump;
+use components::{Transform, Velocity, MaxVelocity, ObamaComponent, OrbitComponent};
 
-use player::{PlayerComponent};
-
-use rendering::{RenderingSystem};
-use input::InputSystem;
-use collision::CollisionSystem;
-use components::{MyServices, MyComponents, Transform, BoundingCircle, ObamaComponent, 
-                StretchComponent, OrbitComponent};
-
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Component, Copy, Clone, Debug, PartialEq)]
+#[component(VecStorage)]
 pub struct RespawnComponent
 {
     pub max_radius: f32,
@@ -37,39 +25,21 @@ pub struct RespawnComponent
     pub min_speed: f32,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct BoundingBox {
-    offset: Vector2<f32>,
-    size: Vector2<f32>,
-}
-
-pub struct MotionSystem
-{
+pub struct MotionSystem {
     pub frametime: f32,
 }
 
-impl System for MotionSystem {
-    type Components = MyComponents;
-    type Services = MyServices;
-}
-
-impl EntityProcess for MotionSystem {
-    fn process(&mut self, entities: EntityIter<MyComponents>,
-               data: &mut DataHelper<MyComponents, MyServices>)
-    {
-        for e in entities {
-            let velocity = data.velocity[e];
-            data.transform[e].pos += velocity * self.frametime;
+impl<'a> specs::System<'a> for MotionSystem {
+    type SystemData = (specs::WriteStorage<'a, Transform>, specs::ReadStorage<'a, Velocity>);
+    fn run(&mut self, (mut transforms, velocities): Self::SystemData) {
+        for (transform, &Velocity(vel)) in (&mut transforms, &velocities).join() {
+            transform.pos += vel * self.frametime;
         }
     }
 }
 
-
-pub struct ObamaSystem;
-
-impl System for ObamaSystem {
-    type Components = MyComponents;
-    type Services = MyServices;
+pub struct ObamaSystem {
+    pub too_few_obamas: bool
 }
 
 fn way_off_screen(pos: Vector2<f32>) -> bool {
@@ -77,45 +47,36 @@ fn way_off_screen(pos: Vector2<f32>) -> bool {
         (pos.y as i32) < -100 || pos.y as u32 > RESOLUTION.1 + 100
 }
 
-impl EntityProcess for ObamaSystem {
-    fn process(&mut self, entities: EntityIter<MyComponents>,
-               data: &mut DataHelper<MyComponents, MyServices>)
-    {
+impl<'a> specs::System<'a> for ObamaSystem {
+    type SystemData = (
+        specs::Entities<'a>,
+        specs::ReadStorage<'a, Transform>,
+    );
+    fn run(&mut self, (entities, transforms): Self::SystemData) {
         let mut obama_amount = 0;
 
-        for e in entities {
+        for (entity, transform) in (&*entities, &transforms).join() {
             obama_amount += 1;
 
             // Remove obamas that are too far out
-            let position = data.transform[e].pos;
-            if way_off_screen(position) {
-                data.remove_entity(e.deref().deref().clone());
+            if way_off_screen(transform.pos) {
+                entities.delete(entity).unwrap();
             }
         }
 
-        data.services.too_few_obamas = obama_amount < 4;
+        self.too_few_obamas = obama_amount < 4;
     }
 }
 
 pub struct MaxVelSystem;
 
-impl System for MaxVelSystem {
-    type Components = MyComponents;
-    type Services = MyServices;
-}
-
-impl EntityProcess for MaxVelSystem
+impl<'a> specs::System<'a> for MaxVelSystem
 {
-    fn process(&mut self, entities: EntityIter<MyComponents>,
-               data: &mut DataHelper<MyComponents, MyServices>)
-    {
-        for e in entities {
-            let velocity = data.velocity[e];
-            let max_vel = data.max_velocity[e];
-
-            if velocity.x * velocity.x + velocity.y * velocity.y > max_vel * max_vel
-            {
-                data.velocity[e] = velocity.normalize() * max_vel;
+    type SystemData = (specs::WriteStorage<'a, Velocity>, specs::ReadStorage<'a, MaxVelocity>);
+    fn run(&mut self, (mut velocities, max_velocities): Self::SystemData) {
+        for (velocity, &MaxVelocity(max_vel)) in (&mut velocities, &max_velocities).join() {
+            if velocity.0.norm_squared() > max_vel * max_vel {
+                velocity.0 = velocity.0.normalize() * max_vel;
             }
         }
     }
@@ -123,41 +84,35 @@ impl EntityProcess for MaxVelSystem
 
 pub struct RespawnSystem;
 
-impl System for RespawnSystem {
-    type Components = MyComponents;
-    type Services = MyServices;
-}
-
-impl EntityProcess for RespawnSystem
+impl<'a> specs::System<'a> for RespawnSystem
 {
-    fn process(&mut self, entities: EntityIter<MyComponents>,
-               data: &mut DataHelper<MyComponents, MyServices>)
-    {
+    type SystemData = (
+        specs::WriteStorage<'a, Transform>,
+        specs::WriteStorage<'a, Velocity>,
+        specs::ReadStorage<'a, RespawnComponent>,
+    );
+    fn run(&mut self, (mut transforms, mut velocities, respawns): Self::SystemData) {
         let center = Vector2::new((RESOLUTION.0 / 2) as f32, (RESOLUTION.1 / 2) as f32);
         let mut rng = rand::thread_rng();
 
-        for e in entities
-        {
-            //let diff = Vector2::new(data.transform[e].pos.x - center.x as f32, data.transform[e].pos.y - center.y as f32);
-            let diff = data.transform[e].pos - center;
+        for (transform, velocity, respawn) in (&mut transforms, &mut velocities, &respawns).join() {
+            let diff = transform.pos - center;
 
-
-            if diff.x.powi(2) + diff.y.powi(2) > data.respawn_component[e].max_radius.powi(2)
-            {
+            if diff.x.powi(2) + diff.y.powi(2) > respawn.max_radius.powi(2) {
                 //select a random position
                 let angle = rng.gen_range(0., consts::PI*2.) as f32;
 
-                data.transform[e].pos = Vector2::new((data.respawn_component[e].max_radius) * angle.cos(),
-                                                     (data.respawn_component[e].max_radius) * angle.sin()) +
-                        center;
+                transform.pos = Vector2::new((respawn.max_radius) * angle.cos(),
+                                         (respawn.max_radius) * angle.sin()) +
+                    center;
 
-                let min_speed = data.respawn_component[e].min_speed;
-                let max_speed = data.respawn_component[e].max_speed;
+                let min_speed = respawn.min_speed;
+                let max_speed = respawn.max_speed;
 
                 //select a random direction
                 let angle = rng.gen_range(0., consts::PI*2.) as f32;
                 let speed = min_speed + rng.gen_range(0., max_speed - min_speed);
-                data.velocity[e] = Vector2::new(speed * angle.cos(), speed * angle.sin());
+                velocity.0 = Vector2::new(speed * angle.cos(), speed * angle.sin());
             }
         }
     }
@@ -165,77 +120,36 @@ impl EntityProcess for RespawnSystem
 
 pub struct OrbitSystem
 {
-    pub player: ecs::Entity,
+    pub player: specs::Entity,
+    pub nuke_angle: f32,
 }
-impl System for OrbitSystem {
-    type Components = MyComponents;
-    type Services = MyServices;
-}
-impl EntityProcess for OrbitSystem
+
+impl<'a> specs::System<'a> for OrbitSystem
 {
-    fn process(&mut self, entities: EntityIter<MyComponents>,
-               data: &mut DataHelper<MyComponents, MyServices>)
+    type SystemData = (specs::WriteStorage<'a, Transform>, specs::WriteStorage<'a, OrbitComponent>);
+    fn run(&mut self, (mut transforms, mut orbiters): Self::SystemData)
     {
-        for e in entities {
+        let player_pos = transforms.get(self.player).unwrap().pos;
+        for (mut orbit, mut transform) in (&mut orbiters, &mut transforms).join() {
+            orbit.angle += orbit.angular_velocity;
 
-            data.orbit[e].angle += data.orbit[e].angular_velocity;
-
-            let target_orbit = data.orbit[e].target_radius;
-            let radius = data.orbit[e].radius;
+            let target_orbit = orbit.target_radius;
+            let radius = orbit.radius;
 
             let diff = radius - target_orbit;
 
-            data.orbit[e].radius -= diff * 0.003;
-
-
-            //Set the actual position around the player
-            //Getting some parameters about the player
-            let mut player_pos = Vector2::new(0.0, 0.0);
-            data.with_entity_data(&self.player, |entity, data|{
-                player_pos = data.transform[entity].pos;
-            });
+            orbit.radius -= diff * 0.003;
 
             let pos = player_pos + Vector2::new(
-                radius * data.orbit[e].angle.cos(),
-                radius * data.orbit[e].angle.sin(),
+                radius * orbit.angle.cos(),
+                radius * orbit.angle.sin(),
             );
 
-            data.transform[e].pos = pos;
-            data.transform[e].angle = data.orbit[e].angle as f64 - consts::PI * 0.5; 
+            transform.pos = pos;
+            transform.angle = orbit.angle as f64 - consts::PI * 0.5; 
 
-            data.services.nuke_angle = data.orbit[e].angle;
+            self.nuke_angle = orbit.angle;
         }
-    }
-}
-
-
-
-systems! {
-    // struct MySystems<MyComponents, MyServices>;
-    struct MySystems<MyComponents, MyServices> {
-        active: {
-            rendering: LazySystem<EntitySystem<RenderingSystem<'static>>> = LazySystem::new(),
-            input: LazySystem<EntitySystem<InputSystem>> = LazySystem::new(),
-            collision: LazySystem<EntitySystem<CollisionSystem>> = LazySystem::new(),
-            motion: EntitySystem<MotionSystem> = EntitySystem::new(
-                MotionSystem{frametime: 1.0},
-                aspect!(<MyComponents> all: [transform, velocity])
-            ),
-            max_vel: EntitySystem<MaxVelSystem> = EntitySystem::new(
-                MaxVelSystem{},
-                aspect!(<MyComponents> all: [velocity, max_velocity])
-            ),
-            respawn: EntitySystem<RespawnSystem> = EntitySystem::new(
-                RespawnSystem{},
-                aspect!(<MyComponents> all: [velocity, transform, respawn_component])
-            ),
-            obama: EntitySystem<ObamaSystem> = EntitySystem::new(
-                ObamaSystem,
-                aspect!(<MyComponents> all: [obama, transform])
-            ),
-            orbit: LazySystem<EntitySystem<OrbitSystem>> = LazySystem::new(),
-        },
-        passive: {}
     }
 }
 
@@ -262,7 +176,7 @@ fn random_edge_position() -> Vector2<f32>
     }
 }
 
-pub fn create_obama(world: &mut World<MySystems>, obama_textures: &Vec<Rc<Texture>>)
+pub fn create_obama(world: &mut specs::World, obama_sprites: &Vec<Sprite>)
 {
     let between_angle = Range::new(0.0f32, (2.0*consts::PI) as f32);
     let mut rng = rand::thread_rng();
@@ -274,76 +188,16 @@ pub fn create_obama(world: &mut World<MySystems>, obama_textures: &Vec<Rc<Textur
     let random_velocity = Vector2::new(random_angle.cos()*obama_speed,
                                        random_angle.sin()*obama_speed);
 
-    let obama_texture = rng.choose(obama_textures).unwrap();
-    let obama_sprite = Sprite::new(obama_texture.clone());
-    let obama_transform = Transform { pos: obama_pos, angle: 0.0,
-                                      scale: Vector2::new(0.5, 0.5) };
+    let obama_sprite = rng.choose(obama_sprites).unwrap();
+    let obama_transform = Transform {
+        pos: obama_pos,
+        angle: 0.0,
+        scale: Vector2::new(0.5, 0.5)
+    };
 
-    world.create_entity(
-        |entity: BuildData<MyComponents>, data: &mut MyComponents| {
-            data.sprite.add(&entity, obama_sprite);
-            data.transform.add(&entity, obama_transform);
-            data.velocity.add(&entity, random_velocity);
-            data.obama.add(&entity, ObamaComponent);
-        }
-    );
-}
-
-
-
-
-pub fn create_world(renderer: Renderer<'static>,
-                    game_renderer: Renderer<'static>,
-                    event_pump: EventPump) -> World<MySystems>
-{
-    let mut world = World::<MySystems>::new();
-
-    let good_texture = Rc::new(load_texture(&game_renderer, "data/good.png"));
-    let test_sprite = Sprite::new(good_texture);
-    let sprite_scale = 0.25;
-    let player_transform = Transform { pos: Vector2::new(RESOLUTION.0 as f32 / 2., RESOLUTION.1 as f32 / 2.0), angle: 0.0,
-                                 scale: Vector2::new(sprite_scale, sprite_scale) };
-
-    let player_box = BoundingCircle { radius: 56.0 * sprite_scale };
-
-
-
-    // Create some entites with some components
-    let player_entity = world.create_entity(
-        |entity: BuildData<MyComponents>, data: &mut MyComponents| {
-            data.velocity.add(&entity, Vector2::new(0.0, 0.0));
-            data.max_velocity.add(&entity, 100.0);
-            data.transform.add(&entity, player_transform);
-            data.sprite.add(&entity, test_sprite);
-            data.player_component.add(&entity, PlayerComponent::new());
-            data.bounding_box.add(&entity, player_box);
-        }
-    );
-
-
-    let renderref = RefCell::new(renderer);
-    let game_renderref = RefCell::new(game_renderer);
-
-    world.systems.rendering.init(EntitySystem::new(
-        RenderingSystem {renderer: renderref, game_renderer: game_renderref,
-                         player: player_entity, shake_amount: 5.0},
-        aspect!(<MyComponents> all: [transform, sprite])
-    ));
-
-    world.systems.input.init(EntitySystem::new(
-        InputSystem{event_pump: event_pump, should_exit:false, mouse_pos: na::zero()},
-        aspect!(<MyComponents> all: [velocity, player_component]))
-    );
-
-    world.systems.collision.init(EntitySystem::new(
-        CollisionSystem {player: player_entity},
-        aspect!(<MyComponents> all: [transform, bounding_box, ball_type] none: [player_component])
-    ));
-
-    world.systems.orbit.init(EntitySystem::new(
-        OrbitSystem{player: player_entity},
-        aspect!(<MyComponents> all: [transform, orbit])
-    ));
-
-    return world;
+    world.create_entity()
+        .with(obama_sprite.clone())
+        .with(obama_transform)
+        .with(Velocity(random_velocity))
+        .with(ObamaComponent).build();
 }

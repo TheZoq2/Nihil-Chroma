@@ -1,16 +1,16 @@
 [package]
-name = "sdl_test"
+name = "nihil_chroma"
 version = "0.1.0"
 authors = ["TheZoq2 <frans.skarman@gmail.com>"]
 
 [dependencies]
-sdl2 = "0.20"
 rand = "*"
-image = "*"
 nalgebra = "*"
-ecs = "*"
+specs = "0.10"
+specs-derive = "*"
 time = "*"
-sfml = "*"
 
-[dependencies.sdl2_ttf]
-git = "https://github.com/andelf/rust-sdl2_ttf"
+[dependencies.sdl2]
+version = "0.31"
+default-features = false
+features = ["ttf", "image", "unsafe_textures"]

@@ -1,18 +1,15 @@
-extern crate ecs;
+extern crate specs;
 
 use nalgebra::{Vector2};
 
-use ecs::{Entity, System, EntityIter, DataHelper};
-use ecs::system::{EntityProcess};
-use components::{MyServices, MyComponents, Transform, BoundingCircle, BallType};
+use components::{Transform, BoundingCircle, BallType};
+use components::{HitBad, HitNeutral, HitGood};
+
+use specs::Join;
 
 pub struct CollisionSystem {
-    pub player: Entity,
-}
-
-impl System for CollisionSystem {
-    type Components = MyComponents;
-    type Services = MyServices;
+    pub player: specs::Entity,
+    pub new_points: i32,
 }
 
 fn are_colliding(tr1: &Transform, bb1: &BoundingCircle,
@@ -26,36 +23,35 @@ fn are_colliding(tr1: &Transform, bb1: &BoundingCircle,
     xdist * xdist + ydist * ydist < r * r
 }
 
-impl EntityProcess for CollisionSystem {
-    fn process(&mut self, entities: EntityIter<MyComponents>,
-               data: &mut DataHelper<MyComponents, MyServices>)
-    {
-        data.services.hit_bad = false;
-        data.services.hit_neutral = false;
-        data.services.hit_good = false;
+impl<'a> specs::System<'a> for CollisionSystem {
+    type SystemData = (
+        specs::WriteStorage<'a, Transform>,
+        specs::ReadStorage<'a, BoundingCircle>,
+        specs::ReadStorage<'a, BallType>,
+        specs::FetchMut<'a, HitBad>,
+        specs::FetchMut<'a, HitNeutral>,
+        specs::FetchMut<'a, HitGood>,
+    );
+    fn run(&mut self, data: Self::SystemData) {
+        let (mut transforms, bounding_circles, ball_types, mut hit_bad, mut hit_neutral, mut hit_good) = data;
+        hit_bad.0 = false;
+        hit_neutral.0 = false;
+        hit_good.0 = false;
 
-        data.services.new_points = 0;
+        self.new_points = 0;
 
-        let mut player_transform: Transform = Default::default();
-        let mut player_box: BoundingCircle = Default::default();
-        data.with_entity_data(&self.player, |entity, data| {
-            player_transform = data.transform[entity];
-            player_box = data.bounding_box[entity];
-        });
+        let player_transform = transforms.get(self.player).unwrap().clone();
+        let player_circle = bounding_circles.get(self.player).unwrap();
 
-        for e in entities {
-            let transform = data.transform[e];
-            let bounding_box = data.bounding_box[e];
-
-            if are_colliding(&player_transform, &player_box, &transform, &bounding_box) {
+        for (mut transform, bounding_circle, ball_type) in (&mut transforms, &bounding_circles, &ball_types).join() {
+            if are_colliding(&player_transform, &player_circle, &transform, &bounding_circle) {
                 //Respawn the ball
-                data.transform[e].pos = Vector2::new(5000., 5000.);
+                transform.pos = Vector2::new(5000., 5000.);
 
-                match data.ball_type[e]
-                {
-                    BallType::Good => {data.services.new_points += 1; data.services.hit_good = true},
-                    BallType::Neutral => data.services.hit_neutral = true,
-                    BallType::Bad => data.services.hit_bad = true,
+                match *ball_type {
+                    BallType::Good => { self.new_points += 1; hit_good.0 = true },
+                    BallType::Neutral => hit_neutral.0 = true,
+                    BallType::Bad => hit_bad.0 = true,
                 }
             }
         }

@@ -1,13 +1,25 @@
-extern crate ecs;
+extern crate specs;
 extern crate nalgebra;
 
-use ecs::{Entity, ServiceManager};
+use specs::{VecStorage, NullStorage};
 use nalgebra::Vector2;
-use sprite::{Sprite};
-use player::{PlayerComponent};
-use game::RespawnComponent;
 
-#[derive(Clone)]
+// struct MyComponents {
+//     #[hot] transform: Transform,
+//     #[hot] velocity: Vector2<f32>,
+//     #[hot] sprite: Sprite<'static>,
+//     #[hot] bounding_box: BoundingCircle,
+//     #[cold] player_component: PlayerComponent,
+//     #[cold] obama: ObamaComponent,
+//     #[cold] respawn_component: RespawnComponent,
+//     #[cold] ball_type: BallType,
+//     #[cold] stretch: StretchComponent,
+//     #[cold] max_velocity: f32,
+//     #[cold] orbit: OrbitComponent,
+// }
+
+#[derive(Component, Debug, Clone)]
+#[component(VecStorage)]
 pub enum BallType
 {
     Good,
@@ -15,9 +27,12 @@ pub enum BallType
     Bad,
 }
 
+#[derive(Component, Default)]
+#[component(NullStorage)]
 pub struct ObamaComponent;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Component, Copy, Clone, Debug, PartialEq)]
+#[component(VecStorage)]
 pub struct Transform
 {
     pub pos: Vector2<f32>,
@@ -35,7 +50,16 @@ impl Default for Transform {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Component)]
+#[component(VecStorage)]
+pub struct Velocity(pub Vector2<f32>);
+
+#[derive(Component)]
+#[component(VecStorage)]
+pub struct MaxVelocity(pub f32);
+
+#[derive(Component, Copy, Clone, Debug, PartialEq)]
+#[component(VecStorage)]
 pub struct BoundingCircle {
     pub radius: f32
 }
@@ -55,6 +79,8 @@ pub struct StretchComponent
     pub original: Vector2<f32>,
 }
 
+#[derive(Component)]
+#[component(VecStorage)]
 pub struct OrbitComponent
 {
     pub radius: f32,
@@ -63,47 +89,7 @@ pub struct OrbitComponent
     pub angle: f32,
 }
 
-components! {
-    struct MyComponents {
-        #[hot] transform: Transform,
-        #[hot] velocity: Vector2<f32>,
-        #[hot] sprite: Sprite,
-        #[hot] bounding_box: BoundingCircle,
-        #[cold] player_component: PlayerComponent,
-        #[cold] obama: ObamaComponent,
-        #[cold] respawn_component: RespawnComponent,
-        #[cold] ball_type: BallType,
-        #[cold] stretch: StretchComponent,
-        #[cold] max_velocity: f32,
-        #[cold] orbit: OrbitComponent,
-    }
-}
-
-pub struct MyServices {
-    pub swap_sprite_with_text: Vec<(Entity, String)>,
-    pub too_few_obamas: bool,
-    pub new_points: u32,
-    pub hit_bad: bool,
-    pub hit_neutral: bool,
-    pub hit_good: bool,
-    pub nuke_angle: f32,
-    pub screenshake: Option<f32>,
-}
-
-impl ServiceManager for MyServices {
-}
-
-impl Default for MyServices {
-    fn default() -> MyServices{
-        MyServices {
-            swap_sprite_with_text: Vec::new(),
-            too_few_obamas: false,
-            new_points: 0,
-            hit_bad: false,
-            hit_neutral: false,
-            hit_good: false,
-            nuke_angle: 0.,
-            screenshake: None,
-        }
-    }
-}
+pub struct HitBad(pub bool);
+pub struct HitNeutral(pub bool);
+pub struct HitGood(pub bool);
+pub struct ScreenShake(pub Option<f32>);

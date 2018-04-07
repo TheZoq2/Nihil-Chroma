@@ -1,3 +1,4 @@
+use specs::VecStorage;
 use std::collections::HashMap;
 
 #[derive(Eq, PartialEq, Hash)]
@@ -9,6 +10,8 @@ pub enum Keys
     Right,
 }
 
+#[derive(Component)]
+#[component(VecStorage)]
 pub struct PlayerComponent
 {
     pressed_keys: HashMap<Keys, bool>,

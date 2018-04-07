@@ -1,78 +1,79 @@
-#![allow(dead_code)]
-
-extern crate sdl2;
 extern crate nalgebra as na;
-extern crate image;
-
-use sdl2::rect::{Rect};
-use sdl2::render::{Renderer, Texture, BlendMode};
-use sdl2::pixels::{PixelFormatEnum};
-use image::GenericImage;
-
-use std::rc::{Rc};
-use std::path::Path;
+extern crate sdl2;
+extern crate specs;
 
 use components::Transform;
 
-//Loads a texture from a file and returns an SDL2 texture object
-pub fn load_texture<'a>(renderer: &Renderer, path: &'a str) -> sdl2::render::Texture
-{
-    println!("Loading texture: {}", path);
-    let img = image::open(&Path::new(&path)).unwrap();
+use sdl2::rect::{Rect};
+use sdl2::render::{Texture, Canvas, RenderTarget};
+use specs::VecStorage;
 
-    let mut result = renderer.create_texture_streaming(
-        PixelFormatEnum::RGBA8888, img.dimensions().0, img.dimensions().1).unwrap();
+use std::sync::{Arc, Mutex};
 
-    result.set_blend_mode(BlendMode::Blend);
+//use std::collections::HashMap;
 
-    //Take the pixels from the image and put them on the texture
-    result.with_lock(None, |buffer: &mut [u8], pitch: usize|{
-        for y in 0..img.dimensions().1
-        {
-            for x in 0..img.dimensions().0
-            {
-                let offset = y*pitch as u32 + x*4;
-                buffer[(offset + 0) as usize] = img.get_pixel(x, y)[3]; //A
-                buffer[(offset + 1) as usize] = img.get_pixel(x, y)[2]; //B
-                buffer[(offset + 2) as usize] = img.get_pixel(x, y)[1]; //G
-                buffer[(offset + 3) as usize] = img.get_pixel(x, y)[0]; //R
-            }
-        }
-    }).unwrap();
+// Implemented some sort of texture id system but probably not neccessary
+// #[derive(Hash, PartialEq, Eq)]
+// pub struct TextureId(isize);
 
-    result
-}
+// impl TextureId {
+//     pub fn next(&self) -> TextureId {
+//         TextureId(self.0 + 1)
+//     }
+// }
 
-pub struct Sprite
-{
-    texture: Rc<Texture>,
+// pub struct TextureRegistry<'a> {
+//     next_id: TextureId,
+//     textures: HashMap<TextureId, Texture<'a>>,
+// }
 
+// impl<'a> TextureRegistry<'a> {
+//     pub fn new() -> TextureRegistry<'a> {
+//         TextureRegistry {
+//             next_id: TextureId(0),
+//             textures: HashMap::new(),
+//         }
+//     }
+
+//     pub fn add(&mut self, texture: Texture<'a>) -> TextureId {
+//         let id = self.next_id;
+//         self.next_id = id.next();
+//         self.textures.insert(id, texture);
+//         id
+//     }
+
+//     pub fn remove(&mut self, id: TextureId) {
+//         self.textures.remove(&id);
+//     }
+
+//     pub fn get(&self, id: TextureId) -> Option<&Texture<'a>> {
+//         self.textures.get(&id)
+//     }
+// }
+
+#[derive(Clone, Component)]
+#[component(VecStorage)]
+pub struct Sprite {
+    texture: Arc<Mutex<Texture>>,
     depth: i32,
 }
 
-impl Sprite
-{
-    pub fn new(texture: Rc<Texture>) -> Sprite
-    {
-        let result = Sprite {
-            texture: texture,
+impl Sprite {
+    pub fn new(texture: Texture) -> Sprite {
+        Sprite {
+            texture: Arc::new(Mutex::new(texture)),
             depth: 0,
-        };
-
-        result
+        }
     }
-}
 
-impl Sprite
-{
-    pub fn draw(&self, transform: &Transform, renderer: &mut Renderer)
-    {
+    pub fn draw<T: RenderTarget>(&self, transform: &Transform, canvas: &mut Canvas<T>) {
+        let texture = self.texture.lock().unwrap();
         //calculating the size value
-        let sizex = transform.scale.x * self.texture.query().width as f32;
-        let sizey = transform.scale.y * self.texture.query().height as f32;
+        let sizex = transform.scale.x * texture.query().width as f32;
+        let sizey = transform.scale.y * texture.query().height as f32;
 
-        renderer.copy_ex(
-            &self.texture,
+        canvas.copy_ex(
+            &texture,
             None,
             Some(Rect::new((transform.pos.x - sizex / 2.)as i32, (transform.pos.y - sizey / 2.) as i32,
                            sizex as u32, sizey as u32)),
@@ -82,3 +83,10 @@ impl Sprite
             false).unwrap();
     }
 }
+
+// Note: This is a bit of a lie since textures can't be rendered on other threads
+// but it is a necessary hack to be able to use them as specs components.
+// However, since Canvas does not implement Sync it should be impossible to try
+// to render on another thread.
+unsafe impl Send for Sprite {}
+unsafe impl Sync for Sprite {}
