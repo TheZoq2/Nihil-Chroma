@@ -6,6 +6,7 @@ use components::Transform;
 
 use sdl2::rect::{Rect};
 use sdl2::render::{Texture, Canvas, RenderTarget};
+use sdl2::sys;
 use specs::VecStorage;
 
 use std::sync::{Arc, Mutex};
@@ -90,3 +91,17 @@ impl Sprite {
 // to render on another thread.
 unsafe impl Send for Sprite {}
 unsafe impl Sync for Sprite {}
+
+// Since we compile with 'unsafe_textures' we need to make sure that textures
+// are destroyed properly
+impl Drop for Sprite {
+    fn drop(&mut self) {
+        let last_one = Arc::strong_count(&self.texture) == 1;
+        if last_one {
+            let tex = self.texture.lock().unwrap().raw();
+            unsafe {
+                sys::SDL_DestroyTexture(tex);
+            }
+        }
+    }
+}

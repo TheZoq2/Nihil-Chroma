@@ -51,11 +51,12 @@ impl<'a> specs::System<'a> for ObamaSystem {
     type SystemData = (
         specs::Entities<'a>,
         specs::ReadStorage<'a, Transform>,
+        specs::ReadStorage<'a, ObamaComponent>,
     );
-    fn run(&mut self, (entities, transforms): Self::SystemData) {
+    fn run(&mut self, (entities, transforms, obamas): Self::SystemData) {
         let mut obama_amount = 0;
 
-        for (entity, transform) in (&*entities, &transforms).join() {
+        for (entity, transform, _) in (&*entities, &transforms, &obamas).join() {
             obama_amount += 1;
 
             // Remove obamas that are too far out

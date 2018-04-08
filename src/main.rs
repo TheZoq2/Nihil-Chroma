@@ -146,12 +146,13 @@ pub fn main() {
     let game_texture_creator = game_canvas.texture_creator();
 
     let load_texture = |filename| {
+        println!("Loading {}", filename);
         game_texture_creator.load_texture(filename).unwrap()
     };
 
     let ball_data = vec! {
         (BallType::Good, "data/good.png"),
-        (BallType::Neutral, "data/good.png"),
+        (BallType::Neutral, "data/neutral.png"),
         (BallType::Bad, "data/bad.png"),
     };
 
@@ -175,12 +176,13 @@ pub fn main() {
     let mut nuke_is_spawned = false;
 
     let obama_files = fs::read_dir("data/obamas").unwrap();
-    let mut obama_sprites = Vec::new();
-    for file in obama_files {
-        let filename = file.unwrap().path().to_str().unwrap().to_string();
-        let obama_sprite = Sprite::new(game_texture_creator.load_texture(&filename).unwrap());
-        obama_sprites.push(obama_sprite);
-    }
+    let obama_file_names = obama_files.map(
+        |file| file.unwrap().path().to_str().unwrap().to_string()
+    );
+    let obama_sprites = obama_file_names.map(|file_name| {
+        println!("Loading {}", file_name);
+        Sprite::new(game_texture_creator.load_texture(&file_name).unwrap())
+    }).collect();
 
     // Create font
     let font = ttf_context.load_font(&Path::new("data/font.ttf"), 128).unwrap();
@@ -225,12 +227,7 @@ pub fn main() {
     // or use the specs dispatcher
     let mut motion_system = MotionSystem { frametime: 0. };
     let mut obama_system = ObamaSystem { too_few_obamas: false };
-    let mut rendering_system = RenderingSystem {
-        canvas: canvas,
-        game_canvas: game_canvas,
-        player: player_entity,
-        shake_amount: 5.0,
-    };
+    let mut rendering_system = RenderingSystem::new(canvas, game_canvas, player_entity, 5.0);
     let mut input_system = InputSystem {
         event_pump: event_pump,
         should_exit: false,
@@ -286,16 +283,19 @@ pub fn main() {
         ball_spawner.do_spawn(&mut world);
 
         //Handle points and endgame
-        points += collision_system.new_points;
+        let new_points = collision_system.new_points;
+        points += new_points;
 
-        world.entities().delete(score_entity).unwrap();
-        let score_string = format!(
-            "Score: {} Life: {} Sausage countdown: {}",
-            points,
-            life,
-            (curr_time - start_time) as i32 - 180
-        );
-        score_entity = create_text_entity(&score_string, &font, &mut world, &game_texture_creator);
+        if new_points != 0 {
+            world.entities().delete(score_entity).unwrap();
+            let score_string = format!(
+                "Score: {} Life: {} Sausage countdown: {}",
+                points,
+                life,
+                (curr_time - start_time) as i32 - 180
+            );
+            score_entity = create_text_entity(&score_string, &font, &mut world, &game_texture_creator);
+        }
 
         {
             let mut hit_bad = world.write_resource::<HitBad>();

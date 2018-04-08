@@ -7,7 +7,7 @@ use components::{HitBad, ScreenShake};
 use sprite::Sprite;
 
 use sdl2::surface::Surface;
-use sdl2::render::Canvas;
+use sdl2::render::{Canvas, Texture};
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::video::Window;
@@ -18,9 +18,30 @@ use specs::Join;
 
 pub struct RenderingSystem<'s> {
     pub canvas: Canvas<Window>,
+    pub game_texture: Texture,
     pub game_canvas: Canvas<Surface<'s>>,
     pub player: specs::Entity,
     pub shake_amount: f32,
+}
+
+impl<'s> RenderingSystem<'s> {
+    pub fn new(
+        canvas: Canvas<Window>,
+        game_canvas: Canvas<Surface<'s>>,
+        player: specs::Entity,
+        shake_amount: f32,
+    ) -> RenderingSystem<'s> {
+        // Creating a new texture to which we will 'copy' the pixels from the
+        // game renderer and make some of them grayscale
+        let game_texture = canvas.texture_creator().create_texture_streaming(
+            PixelFormatEnum::RGB888,
+            RESOLUTION.0,
+            RESOLUTION.1).unwrap();
+
+        RenderingSystem {
+            canvas, game_canvas, game_texture, player, shake_amount
+        }
+    }
 }
 
 impl<'a, 's> specs::System<'a> for RenderingSystem<'s> {
@@ -44,15 +65,7 @@ impl<'a, 's> specs::System<'a> for RenderingSystem<'s> {
         }
 
         let game_surface = self.game_canvas.surface();
-
-        // Creating a new texture to which we will 'copy' the pixels from the
-        // game renderer and make some of them grayscale
-        let mut game_texture = self.canvas.texture_creator().create_texture_streaming(
-                    PixelFormatEnum::RGB888,
-                    RESOLUTION.0,
-                    RESOLUTION.1).unwrap();
-
-        game_texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+        self.game_texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
             let surface_data = game_surface.without_lock().unwrap();
 
             for y in 0..RESOLUTION.1 {
@@ -112,7 +125,7 @@ impl<'a, 's> specs::System<'a> for RenderingSystem<'s> {
         let screen_rect = Rect::new(offset.x, offset.y, size.0 as u32, size.1 as u32);
 
         //Render the new texture on the screen
-        self.canvas.copy(&game_texture, Some(screen_rect), None).unwrap();
+        self.canvas.copy(&self.game_texture, Some(screen_rect), None).unwrap();
 
         self.canvas.present();
     }
@@ -143,5 +156,3 @@ fn is_in_cone(center: Vector2<f32>, x: u32, y: u32, angle: f64) -> bool
     }
     false
 }
-
-
