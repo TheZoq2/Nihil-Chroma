@@ -38,6 +38,7 @@ use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::ttf::Font;
+use sdl2::mixer::{AUDIO_S16LSB, DEFAULT_CHANNELS, INIT_OGG};
 
 use specs::RunNow;
 
@@ -126,6 +127,13 @@ pub fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let ttf_context = sdl2::ttf::init().unwrap();
+
+    let frequency = 44_100;
+    let format = AUDIO_S16LSB; // signed 16 bit samples, in little-endian byte order
+    let channels = DEFAULT_CHANNELS; // Stereo
+    let chunk_size = 1_024;
+    sdl2::mixer::open_audio(frequency, format, channels, chunk_size).unwrap();
+    let _mixer_context = sdl2::mixer::init(INIT_OGG).unwrap();
 
     let window = video_subsystem.window(
         "rust-sdl2 demo: Video", RESOLUTION.0 * UPSCALING, RESOLUTION.1 * UPSCALING)
@@ -248,9 +256,8 @@ pub fn main() {
     }
 
     let start_time = time::precise_time_s() as f32;
-    // let mut music = Music::new_from_file("data/music.ogg").unwrap();
-    // music.set_loop(true);
-    // music.play();
+    let music = sdl2::mixer::Music::from_file("data/music.ogg").unwrap();
+    music.play(-1).unwrap();
 
     world.add_resource(HitBad(false));
     world.add_resource(HitNeutral(false));
