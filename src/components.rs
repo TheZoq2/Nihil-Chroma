@@ -4,21 +4,7 @@ extern crate nalgebra;
 use specs::{VecStorage, NullStorage};
 use nalgebra::Vector2;
 
-// struct MyComponents {
-//     #[hot] transform: Transform,
-//     #[hot] velocity: Vector2<f32>,
-//     #[hot] sprite: Sprite<'static>,
-//     #[hot] bounding_box: BoundingCircle,
-//     #[cold] player_component: PlayerComponent,
-//     #[cold] obama: ObamaComponent,
-//     #[cold] respawn_component: RespawnComponent,
-//     #[cold] ball_type: BallType,
-//     #[cold] stretch: StretchComponent,
-//     #[cold] max_velocity: f32,
-//     #[cold] orbit: OrbitComponent,
-// }
-
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Copy, Clone)]
 #[component(VecStorage)]
 pub enum BallType
 {

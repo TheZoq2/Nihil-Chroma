@@ -23,12 +23,14 @@ use constants::*;
 use game::{RespawnComponent, MaxVelSystem, MotionSystem, ObamaSystem, OrbitSystem, RespawnSystem};
 use input::InputSystem;
 use player::PlayerComponent;
-use sprite::Sprite;
+use sprite::{Sprite, TextureId, TextureRegistry};
 use rendering::RenderingSystem;
 
 use rand::Rng;
 
+use std::cell::RefCell;
 use std::fs;
+use std::rc::Rc;
 use std::path::Path;
 
 use nalgebra::{Vector2, zero};
@@ -40,7 +42,7 @@ use sdl2::surface::Surface;
 use sdl2::ttf::Font;
 use sdl2::mixer::{AUDIO_S16LSB, DEFAULT_CHANNELS, INIT_OGG};
 
-use specs::RunNow;
+use specs::{Entity, RunNow, World};
 
 // use sfml::audio::{Music};
 
@@ -61,7 +63,7 @@ impl BallSpawner {
         }
     }
 
-    pub fn do_spawn(&mut self, world: &mut specs::World) {
+    pub fn do_spawn(&mut self, world: &mut World) {
         let curr_time = time::precise_time_s() as f32;
         if curr_time > self.last_spawn + self.spawn_time {
             self.spawn_ball(world);
@@ -70,7 +72,7 @@ impl BallSpawner {
         }
     }
 
-    pub fn spawn_ball(&self, world: &mut specs::World) {
+    pub fn spawn_ball(&self, world: &mut World) {
         let mut rng = rand::thread_rng();
 
         let respawn_comp = RespawnComponent{max_radius: 400.0, max_speed: 120.0, min_speed: 70.0};
@@ -80,38 +82,31 @@ impl BallSpawner {
             scale: Vector2::new(0.25, 0.25)
         };
         let bound = components::BoundingCircle { radius: 28.0 * 0.5 };
-        let (ball_type, ball_sprite) = self.types[rng.gen_range(0, self.types.len())].clone();
+        let (ball_type, ball_sprite) = self.types[rng.gen_range(0, self.types.len())];
 
         world.create_entity()
             .with(transform)
             .with(Velocity(Vector2::new(0.0, 0.0)))
-            .with(ball_sprite.clone())
-            .with(respawn_comp.clone())
+            .with(ball_sprite)
+            .with(respawn_comp)
             .with(bound)
             .with(ball_type)
             .build();
     }
 }
 
-fn create_text_texture<'a, 'r, T>(
-    text: &'a str,
+fn create_text_texture<'r, T>(
+    text: &str,
     font: &Font,
     texture_creator: &'r TextureCreator<T>,
-) -> Texture {
+) -> Texture<'r> {
     // render a surface, and convert it to a texture bound to the renderer
     let surface = font.render(text)
         .blended(Color::RGBA(255, 255, 255, 255)).unwrap();
     texture_creator.create_texture_from_surface(&surface).unwrap()
 }
 
-fn create_text_entity<'a, 'r, T>(
-    text: &'a str,
-    font: &Font,
-    world: &mut specs::World,
-    texture_creator: &'r TextureCreator<T>,
-) -> specs::Entity {
-    let texture = create_text_texture(text, font, texture_creator);
-
+fn create_text_entity(texture: TextureId, world: &mut World) -> Entity {
     // Create text entity
     world.create_entity()
         .with(Transform {
@@ -123,6 +118,7 @@ fn create_text_entity<'a, 'r, T>(
         .build()
 }
 
+// TODO: split this into multiple functions
 pub fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -152,10 +148,12 @@ pub fn main() {
     game_canvas.set_draw_color(Color::RGB(200, 80, 50));
 
     let game_texture_creator = game_canvas.texture_creator();
+    let texture_registry_ref = Rc::new(RefCell::new(TextureRegistry::new()));
 
     let load_texture = |filename| {
         println!("Loading {}", filename);
-        game_texture_creator.load_texture(filename).unwrap()
+        let tex = game_texture_creator.load_texture(filename).unwrap();
+        texture_registry_ref.borrow_mut().add(tex)
     };
 
     let ball_data = vec! {
@@ -187,9 +185,11 @@ pub fn main() {
     let obama_file_names = obama_files.map(
         |file| file.unwrap().path().to_str().unwrap().to_string()
     );
+    // TODO: merge this with the load_texture closure
     let obama_sprites = obama_file_names.map(|file_name| {
         println!("Loading {}", file_name);
-        Sprite::new(game_texture_creator.load_texture(&file_name).unwrap())
+        let tex = game_texture_creator.load_texture(&file_name).unwrap();
+        Sprite::new(texture_registry_ref.borrow_mut().add(tex))
     }).collect();
 
     // Create font
@@ -197,7 +197,7 @@ pub fn main() {
 
     let event_pump = sdl_context.event_pump().unwrap();
     
-    let mut world = specs::World::new();
+    let mut world = World::new();
     world.register::<Transform>();
     world.register::<Velocity>();
     world.register::<Sprite>();
@@ -208,7 +208,6 @@ pub fn main() {
     world.register::<BallType>();
     world.register::<MaxVelocity>();
     world.register::<OrbitComponent>();
-    let game_texture_creator = game_canvas.texture_creator();
 
     let good_texture = load_texture("data/good.png");
     let test_sprite = Sprite::new(good_texture);
@@ -231,11 +230,10 @@ pub fn main() {
         .with(player_box)
         .build();
 
-    // TODO: create some sort of systems struct that can run all systems
-    // or use the specs dispatcher
+    // TODO: use the specs dispatcher with tread_local for the rendering system
     let mut motion_system = MotionSystem { frametime: 0. };
     let mut obama_system = ObamaSystem { too_few_obamas: false };
-    let mut rendering_system = RenderingSystem::new(canvas, game_canvas, player_entity, 5.0);
+    let mut rendering_system = RenderingSystem::new(canvas, game_canvas, player_entity, 5.0, texture_registry_ref.clone());
     let mut input_system = InputSystem {
         event_pump: event_pump,
         should_exit: false,
@@ -249,7 +247,10 @@ pub fn main() {
     let mut points = 0;
     let mut life = 3;
 
-    let mut score_entity = create_text_entity("Score: 0", &font, &mut world, &game_texture_creator);
+    let score_texture_id = texture_registry_ref.borrow_mut().add(
+        create_text_texture("Score: 0", &font, &game_texture_creator)
+    );
+    let score_entity = create_text_entity(score_texture_id, &mut world);
 
     for _ in 0..20 {
         ball_spawner.spawn_ball(&mut world);
@@ -293,16 +294,16 @@ pub fn main() {
         let new_points = collision_system.new_points;
         points += new_points;
 
-        if new_points != 0 {
-            world.entities().delete(score_entity).unwrap();
-            let score_string = format!(
-                "Score: {} Life: {} Sausage countdown: {}",
-                points,
-                life,
-                (curr_time - start_time) as i32 - 180
-            );
-            score_entity = create_text_entity(&score_string, &font, &mut world, &game_texture_creator);
-        }
+        // TODO: this could be optimized to only create a new texture when the text changes
+        world.entities().delete(score_entity).unwrap();
+        let score_string = format!(
+            "Score: {} Life: {} Sausage countdown: {}",
+            points,
+            life,
+            (curr_time - start_time) as i32 - 180
+        );
+        let new_score_texture = create_text_texture(&score_string, &font, &game_texture_creator);
+        texture_registry_ref.borrow_mut().replace(score_texture_id, new_score_texture);
 
         {
             let mut hit_bad = world.write_resource::<HitBad>();
@@ -312,21 +313,22 @@ pub fn main() {
             }
             if life < 0 {
                 println!("You died, final score: {}", points);
-                return;
+                break 'running;
             }
         }
 
         if input_system.should_exit {
-            return;
+            break 'running;
         }
 
+        // TODO: everything below this point could probably be moved into a new system
         let nuke_time = 180.0;
         let nuke_angle = orbit_system.nuke_angle;
 
         if curr_time - start_time > nuke_time && sausage_is_spawned == false {
             sausage_is_spawned = true;
 
-            let sausage_sprite = sausage_sprite.clone();
+            let sausage_sprite = sausage_sprite;
             world.create_entity()
                 .with(sausage_transform)
                 .with(OrbitComponent{radius: 1000., target_radius:150., angle:0., angular_velocity: 0.02})
@@ -349,7 +351,7 @@ pub fn main() {
                     world.create_entity()
                         .with(nuke_transform)
                         .with(OrbitComponent{radius: 250., target_radius:0., angle:nuke_angle, angular_velocity: 0.02})
-                        .with(nuke_sprite.clone())
+                        .with(nuke_sprite)
                         .with(bound)
                         .with(ball_type.clone())
                         .build();

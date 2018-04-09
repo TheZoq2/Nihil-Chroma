@@ -4,24 +4,26 @@ extern crate rand;
 use constants::*;
 use components::Transform;
 use components::{HitBad, ScreenShake};
-use sprite::Sprite;
+use sprite::{Sprite, TextureRegistry};
 
 use sdl2::surface::Surface;
-use sdl2::render::{Canvas, Texture};
+use sdl2::render::Canvas;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::video::Window;
+use std::cell::RefCell;
 use std::f64::consts;
+use std::rc::Rc;
 use nalgebra::Vector2;
 use rand::Rng;
 use specs::Join;
 
 pub struct RenderingSystem<'s> {
     pub canvas: Canvas<Window>,
-    pub game_texture: Texture,
     pub game_canvas: Canvas<Surface<'s>>,
     pub player: specs::Entity,
     pub shake_amount: f32,
+    pub texture_registry_ref: Rc<RefCell<TextureRegistry<'s>>>,
 }
 
 impl<'s> RenderingSystem<'s> {
@@ -30,16 +32,10 @@ impl<'s> RenderingSystem<'s> {
         game_canvas: Canvas<Surface<'s>>,
         player: specs::Entity,
         shake_amount: f32,
+        texture_registry_ref: Rc<RefCell<TextureRegistry<'s>>>,
     ) -> RenderingSystem<'s> {
-        // Creating a new texture to which we will 'copy' the pixels from the
-        // game renderer and make some of them grayscale
-        let game_texture = canvas.texture_creator().create_texture_streaming(
-            PixelFormatEnum::RGB888,
-            RESOLUTION.0,
-            RESOLUTION.1).unwrap();
-
         RenderingSystem {
-            canvas, game_canvas, game_texture, player, shake_amount
+            canvas, game_canvas, player, shake_amount, texture_registry_ref
         }
     }
 }
@@ -61,11 +57,19 @@ impl<'a, 's> specs::System<'a> for RenderingSystem<'s> {
         self.game_canvas.clear();
 
         for (transform, sprite) in (&transforms, &sprites).join() {
-            sprite.draw(&transform, &mut self.game_canvas);
+            sprite.draw(&transform, &mut self.game_canvas, &self.texture_registry_ref.borrow());
         }
 
         let game_surface = self.game_canvas.surface();
-        self.game_texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+        let texture_creator = self.canvas.texture_creator();
+        // Creating a new texture to which we will 'copy' the pixels from the
+        // game renderer and make some of them grayscale
+        let mut game_texture = texture_creator.create_texture_streaming(
+            PixelFormatEnum::RGB888,
+            RESOLUTION.0,
+            RESOLUTION.1).unwrap();
+
+        game_texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
             let surface_data = game_surface.without_lock().unwrap();
 
             for y in 0..RESOLUTION.1 {
@@ -125,7 +129,7 @@ impl<'a, 's> specs::System<'a> for RenderingSystem<'s> {
         let screen_rect = Rect::new(offset.x, offset.y, size.0 as u32, size.1 as u32);
 
         //Render the new texture on the screen
-        self.canvas.copy(&self.game_texture, Some(screen_rect), None).unwrap();
+        self.canvas.copy(&game_texture, Some(screen_rect), None).unwrap();
 
         self.canvas.present();
     }
