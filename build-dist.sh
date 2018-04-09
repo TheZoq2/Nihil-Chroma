@@ -11,3 +11,5 @@ cp /usr/lib/libSDL2_ttf-2.0.so.0 dist
 cp /usr/lib/libSDL2_image-2.0.so.0 dist
 cp /usr/lib/libSDL2_mixer-2.0.so.0 dist
 cp -r data dist
+
+zip -r9 nihil_chroma.zip dist/
