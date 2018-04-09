@@ -7,6 +7,8 @@ use components::Transform;
 use sdl2::rect::{Rect};
 use sdl2::render::{Canvas, RenderTarget, Texture, TextureCreator};
 use sdl2::image::LoadTexture;
+use sdl2::pixels::Color;
+use sdl2::ttf::Font;
 use specs::VecStorage;
 
 use std::collections::HashMap;
@@ -51,19 +53,36 @@ impl<'l, T> TextureManager<'l, T>
 
     pub fn load(&mut self, path: &str) -> Result<TextureId, String>
     {
-        self.cache
-            .get(path)
-            .cloned()
-            .map_or_else(|| {
-                             println!("Loading {}", path);
-                             let resource = Rc::new(self.loader.load_texture(path)?);
-                             let id = self.next_key;
-                             self.cache.insert(path.into(), id);
-                             self.storage.insert(id, resource.clone());
-                             self.next_key = id.next();
-                             Ok(id)
-                         },
-                         Ok)
+        match self.cache.get(path).cloned() {
+            Some(id) => Ok(id),
+            None => {
+                println!("Loading {}", path);
+                let resource = Rc::new(self.loader.load_texture(path)?);
+                let id = self.next_key;
+                self.cache.insert(path.into(), id);
+                self.storage.insert(id, resource.clone());
+                self.next_key = id.next();
+                Ok(id)
+            }
+        }
+    }
+
+    pub fn make_text_texture(&mut self, text: &str, font: &Font, id_to_replace: Option<TextureId>) -> Result<TextureId, String> {
+        // render a surface, and convert it to a texture bound to the renderer
+        let surface = font.render(text)
+            .blended(Color::RGBA(255, 255, 255, 255))
+            .map_err(|e| e.to_string())?;
+        let tex = self.loader
+            .create_texture_from_surface(&surface)
+            .map_err(|e| e.to_string())?;
+
+        let id = id_to_replace.unwrap_or_else(|| {
+            let id = self.next_key;
+            self.next_key = id.next();
+            id
+        });
+        self.storage.insert(id, Rc::new(tex));
+        Ok(id)
     }
 
     pub fn get(&self, key: TextureId) -> Option<Rc<Texture<'l>>> {

@@ -34,9 +34,7 @@ use std::path::Path;
 use nalgebra::{Vector2, zero};
 
 use sdl2::pixels::{Color, PixelFormatEnum};
-use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
-use sdl2::ttf::Font;
 use sdl2::mixer::{AUDIO_S16LSB, DEFAULT_CHANNELS, INIT_OGG};
 
 use specs::{Entity, RunNow, World};
@@ -90,17 +88,6 @@ impl BallSpawner {
             .with(ball_type)
             .build();
     }
-}
-
-fn create_text_texture<'r, T>(
-    text: &str,
-    font: &Font,
-    texture_creator: &'r TextureCreator<T>,
-) -> Texture<'r> {
-    // render a surface, and convert it to a texture bound to the renderer
-    let surface = font.render(text)
-        .blended(Color::RGBA(255, 255, 255, 255)).unwrap();
-    texture_creator.create_texture_from_surface(&surface).unwrap()
 }
 
 fn create_text_entity(texture: TextureId, world: &mut World) -> Entity {
@@ -235,10 +222,10 @@ pub fn main() {
     let mut points = 0;
     let mut life = 3;
 
-    // let score_texture_id = texture_registry_ref.borrow_mut().add(
-    //     create_text_texture("Score: 0", &font, &game_texture_creator)
-    // );
-    // let score_entity = create_text_entity(score_texture_id, &mut world);
+    let score_texture_id = rendering_system.texture_manager.make_text_texture(
+        "Score: 0", &font, None
+    ).unwrap();
+    create_text_entity(score_texture_id, &mut world);
 
     for _ in 0..20 {
         ball_spawner.spawn_ball(&mut world);
@@ -283,15 +270,15 @@ pub fn main() {
         points += new_points;
 
         // TODO: this could be optimized to only create a new texture when the text changes
-        //world.entities().delete(score_entity).unwrap();
         let score_string = format!(
             "Score: {} Life: {} Sausage countdown: {}",
             points,
             life,
             (curr_time - start_time) as i32 - 180
         );
-        //let new_score_texture = create_text_texture(&score_string, &font, &game_texture_creator);
-        //texture_registry_ref.borrow_mut().replace(score_texture_id, new_score_texture);
+        rendering_system.texture_manager.make_text_texture(
+            &score_string, &font, Some(score_texture_id)
+        ).unwrap();
 
         {
             let mut hit_bad = world.write_resource::<HitBad>();
