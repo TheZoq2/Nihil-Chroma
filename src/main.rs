@@ -28,9 +28,7 @@ use rendering::RenderingSystem;
 
 use rand::Rng;
 
-use std::cell::RefCell;
 use std::fs;
-use std::rc::Rc;
 use std::path::Path;
 
 use nalgebra::{Vector2, zero};
@@ -176,12 +174,10 @@ pub fn main() {
     let mut nuke_is_spawned = false;
 
     let obama_files = fs::read_dir("data/obamas").unwrap();
-    let obama_file_names = obama_files.map(
-        |file| file.unwrap().path().to_str().unwrap().to_string()
-    );
-    // TODO: merge this with the load_texture closure
-    let obama_sprites = obama_file_names.map(|file_name| {
-        Sprite::new(texture_manager.load(&file_name).unwrap())
+    let obama_sprites = obama_files.map(|file| {
+        Sprite::new(texture_manager.load(
+            file.unwrap().path().to_str().unwrap()).unwrap()
+        )
     }).collect();
 
     // Create font

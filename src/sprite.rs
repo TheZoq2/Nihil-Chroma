@@ -9,9 +9,7 @@ use sdl2::render::{Canvas, RenderTarget, Texture, TextureCreator};
 use sdl2::image::LoadTexture;
 use specs::VecStorage;
 
-use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq)]
@@ -22,7 +20,7 @@ pub trait Key {
     fn next(&self) -> Self;
 }
 
-impl Key for TextureId {
+impl TextureId {
     fn new() -> TextureId {
         TextureId(0)
     }
@@ -32,49 +30,35 @@ impl Key for TextureId {
     }
 }
 
-// Resource manager code taken from https://github.com/Rust-SDL2/rust-sdl2/blob/master/examples/resource-manager.rs
-// Generic struct to cache any resource loaded by a ResourceLoader
-pub struct ResourceManager<'l, K, Q, R, L>
-    where K: Hash + Eq,
-          Q: Key + Eq + Copy + Key,
-          L: 'l + ResourceLoader<'l, R>
+pub struct TextureManager<'l, T: 'l>
 {
-    loader: &'l L,
-    cache: HashMap<K, Q>,
-    next_key: Q,
-    storage: HashMap<Q, Rc<R>>,
+    loader: &'l TextureCreator<T>,
+    cache: HashMap<String, TextureId>,
+    next_key: TextureId,
+    storage: HashMap<TextureId, Rc<Texture<'l>>>,
 }
 
-pub type TextureManager<'l, T> = ResourceManager<'l, String, TextureId, Texture<'l>, TextureCreator<T>>;
-
-impl<'l, K, Q, R, L> ResourceManager<'l, K, Q, R, L>
-    where K: Hash + Eq,
-          Q: Key + Hash + Eq + Copy + Key,
-          L: ResourceLoader<'l, R>
+impl<'l, T> TextureManager<'l, T>
 {
-    pub fn new(loader: &'l L) -> Self {
-        ResourceManager {
+    pub fn new(loader: &'l TextureCreator<T>) -> Self {
+        TextureManager {
             cache: HashMap::new(),
             storage: HashMap::new(),
-            next_key: Q::new(),
+            next_key: TextureId::new(),
             loader: loader,
         }
     }
 
-    // Generics magic to allow a HashMap to use String as a key
-    // while allowing it to use &str for gets
-    pub fn load<D>(&mut self, details: &D) -> Result<Q, String>
-        where L: ResourceLoader<'l, R, Args = D>,
-              D: Eq + Hash + ?Sized,
-              K: Borrow<D> + for<'a> From<&'a D>
+    pub fn load(&mut self, path: &str) -> Result<TextureId, String>
     {
         self.cache
-            .get(details)
+            .get(path)
             .cloned()
             .map_or_else(|| {
-                             let resource = Rc::new(self.loader.load(details)?);
+                             println!("Loading {}", path);
+                             let resource = Rc::new(self.loader.load_texture(path)?);
                              let id = self.next_key;
-                             self.cache.insert(details.into(), id);
+                             self.cache.insert(path.into(), id);
                              self.storage.insert(id, resource.clone());
                              self.next_key = id.next();
                              Ok(id)
@@ -82,58 +66,10 @@ impl<'l, K, Q, R, L> ResourceManager<'l, K, Q, R, L>
                          Ok)
     }
 
-    pub fn get(&self, key: Q) -> Option<Rc<R>> {
+    pub fn get(&self, key: TextureId) -> Option<Rc<Texture<'l>>> {
         self.storage.get(&key).cloned()
     }
 }
-
-// Generic trait to Load any Resource Kind
-pub trait ResourceLoader<'l, R> {
-    type Args: ?Sized;
-    fn load(&'l self, data: &Self::Args) -> Result<R, String>;
-}
-
-// TextureCreator knows how to load Textures
-impl<'l, T> ResourceLoader<'l, Texture<'l>> for TextureCreator<T> {
-    type Args = str;
-    fn load(&'l self, path: &str) -> Result<Texture, String> {
-        println!("Loading {}", path);
-        self.load_texture(path)
-    }
-}
-
-// pub struct TextureRegistry<'a> {
-//     next_id: TextureId,
-//     textures: HashMap<TextureId, Texture<'a>>,
-// }
-
-// impl<'a> TextureRegistry<'a> {
-//     pub fn new() -> TextureRegistry<'a> {
-//         TextureRegistry {
-//             next_id: TextureId(0),
-//             textures: HashMap::new(),
-//         }
-//     }
-
-//     pub fn add(&mut self, texture: Texture<'a>) -> TextureId {
-//         let id = self.next_id;
-//         self.next_id = id.next();
-//         self.textures.insert(id, texture);
-//         id
-//     }
-
-//     pub fn replace(&mut self, id: TextureId, new_texture: Texture<'a>) {
-//         self.textures.insert(id, new_texture);
-//     }
-
-//     pub fn remove(&mut self, id: TextureId) {
-//         self.textures.remove(&id);
-//     }
-
-//     pub fn get(&self, id: TextureId) -> Option<&Texture<'a>> {
-//         self.textures.get(&id)
-//     }
-// }
 
 #[derive(Copy, Clone, Component)]
 #[component(VecStorage)]
