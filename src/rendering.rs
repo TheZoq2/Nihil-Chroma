@@ -4,9 +4,9 @@ extern crate rand;
 use constants::*;
 use components::Transform;
 use components::{HitBad, ScreenShake};
-use sprite::{Sprite, TextureRegistry};
+use sprite::{Sprite, TextureManager};
 
-use sdl2::surface::Surface;
+use sdl2::surface::{Surface, SurfaceContext};
 use sdl2::render::Canvas;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
@@ -18,29 +18,29 @@ use nalgebra::Vector2;
 use rand::Rng;
 use specs::Join;
 
-pub struct RenderingSystem<'s> {
+pub struct RenderingSystem<'l, 's: 'l> {
     pub canvas: Canvas<Window>,
     pub game_canvas: Canvas<Surface<'s>>,
     pub player: specs::Entity,
     pub shake_amount: f32,
-    pub texture_registry_ref: Rc<RefCell<TextureRegistry<'s>>>,
+    pub texture_manager: TextureManager<'l, SurfaceContext<'s>>,
 }
 
-impl<'s> RenderingSystem<'s> {
+impl<'l, 's> RenderingSystem<'l, 's> {
     pub fn new(
         canvas: Canvas<Window>,
         game_canvas: Canvas<Surface<'s>>,
         player: specs::Entity,
         shake_amount: f32,
-        texture_registry_ref: Rc<RefCell<TextureRegistry<'s>>>,
-    ) -> RenderingSystem<'s> {
+        texture_manager: TextureManager<'l, SurfaceContext<'s>>,
+    ) -> RenderingSystem<'l, 's> {
         RenderingSystem {
-            canvas, game_canvas, player, shake_amount, texture_registry_ref
+            canvas, game_canvas, player, shake_amount, texture_manager
         }
     }
 }
 
-impl<'a, 's> specs::System<'a> for RenderingSystem<'s> {
+impl<'a, 'l, 's> specs::System<'a> for RenderingSystem<'l, 's> {
     type SystemData = (
         specs::ReadStorage<'a, Transform>,
         specs::ReadStorage<'a, Sprite>,
@@ -57,7 +57,7 @@ impl<'a, 's> specs::System<'a> for RenderingSystem<'s> {
         self.game_canvas.clear();
 
         for (transform, sprite) in (&transforms, &sprites).join() {
-            sprite.draw(&transform, &mut self.game_canvas, &self.texture_registry_ref.borrow());
+            sprite.draw(&transform, &mut self.game_canvas, &self.texture_manager);
         }
 
         let game_surface = self.game_canvas.surface();

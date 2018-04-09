@@ -23,7 +23,7 @@ use constants::*;
 use game::{RespawnComponent, MaxVelSystem, MotionSystem, ObamaSystem, OrbitSystem, RespawnSystem};
 use input::InputSystem;
 use player::PlayerComponent;
-use sprite::{Sprite, TextureId, TextureRegistry};
+use sprite::{Sprite, TextureId, TextureManager};
 use rendering::RenderingSystem;
 
 use rand::Rng;
@@ -35,7 +35,6 @@ use std::path::Path;
 
 use nalgebra::{Vector2, zero};
 
-use sdl2::image::LoadTexture;
 use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
@@ -148,13 +147,8 @@ pub fn main() {
     game_canvas.set_draw_color(Color::RGB(200, 80, 50));
 
     let game_texture_creator = game_canvas.texture_creator();
-    let texture_registry_ref = Rc::new(RefCell::new(TextureRegistry::new()));
-
-    let load_texture = |filename| {
-        println!("Loading {}", filename);
-        let tex = game_texture_creator.load_texture(filename).unwrap();
-        texture_registry_ref.borrow_mut().add(tex)
-    };
+    //let texture_registry_ref = Rc::new(RefCell::new(TextureRegistry::new()));
+    let mut texture_manager = TextureManager::new(&game_texture_creator);
 
     let ball_data = vec! {
         (BallType::Good, "data/good.png"),
@@ -163,16 +157,16 @@ pub fn main() {
     };
 
     let mut ball_spawner = BallSpawner::new(ball_data.into_iter().map(|(ball_type, ball_texture_file)| {
-        (ball_type, Sprite::new(load_texture(ball_texture_file)))
+        (ball_type, Sprite::new(texture_manager.load(ball_texture_file).unwrap()))
     }).collect());
 
-    let sausage_sprite = Sprite::new(load_texture("data/sausage.png"));
+    let sausage_sprite = Sprite::new(texture_manager.load("data/sausage.png").unwrap());
     let sausage_transform = Transform {
         pos: Vector2::new(100000000., RESOLUTION.1 as f32 / 2.0),
         angle: 0.0,
         scale: Vector2::new(1.5, 1.5)
     };
-    let nuke_sprite = Sprite::new(load_texture("data/nuke.png"));
+    let nuke_sprite = Sprite::new(texture_manager.load("data/nuke.png").unwrap());
     let nuke_transform = Transform {
         pos: Vector2::new(100000., RESOLUTION.1 as f32 / 2.0),
         angle: 0.0,
@@ -187,9 +181,7 @@ pub fn main() {
     );
     // TODO: merge this with the load_texture closure
     let obama_sprites = obama_file_names.map(|file_name| {
-        println!("Loading {}", file_name);
-        let tex = game_texture_creator.load_texture(&file_name).unwrap();
-        Sprite::new(texture_registry_ref.borrow_mut().add(tex))
+        Sprite::new(texture_manager.load(&file_name).unwrap())
     }).collect();
 
     // Create font
@@ -209,7 +201,7 @@ pub fn main() {
     world.register::<MaxVelocity>();
     world.register::<OrbitComponent>();
 
-    let good_texture = load_texture("data/good.png");
+    let good_texture = texture_manager.load("data/good.png").unwrap();
     let test_sprite = Sprite::new(good_texture);
     let sprite_scale = 0.25;
     let player_transform = Transform {
@@ -233,7 +225,7 @@ pub fn main() {
     // TODO: use the specs dispatcher with tread_local for the rendering system
     let mut motion_system = MotionSystem { frametime: 0. };
     let mut obama_system = ObamaSystem { too_few_obamas: false };
-    let mut rendering_system = RenderingSystem::new(canvas, game_canvas, player_entity, 5.0, texture_registry_ref.clone());
+    let mut rendering_system = RenderingSystem::new(canvas, game_canvas, player_entity, 5.0, texture_manager);
     let mut input_system = InputSystem {
         event_pump: event_pump,
         should_exit: false,
@@ -247,10 +239,10 @@ pub fn main() {
     let mut points = 0;
     let mut life = 3;
 
-    let score_texture_id = texture_registry_ref.borrow_mut().add(
-        create_text_texture("Score: 0", &font, &game_texture_creator)
-    );
-    let score_entity = create_text_entity(score_texture_id, &mut world);
+    // let score_texture_id = texture_registry_ref.borrow_mut().add(
+    //     create_text_texture("Score: 0", &font, &game_texture_creator)
+    // );
+    // let score_entity = create_text_entity(score_texture_id, &mut world);
 
     for _ in 0..20 {
         ball_spawner.spawn_ball(&mut world);
@@ -295,15 +287,15 @@ pub fn main() {
         points += new_points;
 
         // TODO: this could be optimized to only create a new texture when the text changes
-        world.entities().delete(score_entity).unwrap();
+        //world.entities().delete(score_entity).unwrap();
         let score_string = format!(
             "Score: {} Life: {} Sausage countdown: {}",
             points,
             life,
             (curr_time - start_time) as i32 - 180
         );
-        let new_score_texture = create_text_texture(&score_string, &font, &game_texture_creator);
-        texture_registry_ref.borrow_mut().replace(score_texture_id, new_score_texture);
+        //let new_score_texture = create_text_texture(&score_string, &font, &game_texture_creator);
+        //texture_registry_ref.borrow_mut().replace(score_texture_id, new_score_texture);
 
         {
             let mut hit_bad = world.write_resource::<HitBad>();
